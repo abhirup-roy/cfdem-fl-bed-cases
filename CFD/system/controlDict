@@ -1,0 +1,112 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  1.6                                   |
+|   \\  /    A nd           | Web:      www.OpenFOAM.org                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      controlDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+application     cfdemSolverPiso;
+
+startFrom      latestTime; // startTime; //latestTime; // startTime; //latestTime; // startTime; //
+
+startTime       0;
+
+stopAt          endTime;//writeNow;//endTime;//writeNow;//
+
+endTime         13.7;
+
+deltaT          0.0005;
+
+writeControl    adjustableRunTime;
+
+writeInterval   0.4;
+
+purgeWrite      0;
+
+writeFormat     ascii;
+
+writePrecision  6;
+
+writeCompression uncompressed;
+
+timeFormat      general;
+
+timePrecision   6;
+
+runTimeModifiable yes;
+
+adjustTimeStep  no;
+
+maxCo 0.1;
+/*libs (
+    "libsimpleSwakFunctionObjects.so"
+    "libswakFunctionObjects.so"
+    "libgroovyBC.so"
+    "libfiniteVolumeCFDEM.so"
+);*/
+
+functions
+{
+    readFields
+    {
+        functionObjectLibs ( "libfieldFunctionObjects.so" );
+        type            readFields;
+        fields          ( voidfraction U Us );
+    }
+	probes
+	{
+	
+		type probes;
+		functionObjectLibs ( "libsampling.so" );
+		name probes;
+		probeLocations
+		(
+			(0.0 0.0 0.0005)
+			(0.0 0.0 0.025)
+			(0.0 0.0 0.05)
+			(0.0 0.0 0.075)
+			(0.0 0.0 0.1)
+		);
+		
+        	fields          (p );
+		outputControl timeStep;
+		outputInterval 1;
+	}
+
+    cuttingPlane
+    {
+        type            surfaces;
+        functionObjectLibs ( "libsampling.so" );
+        outputControl   timeStep; //outputTime;
+	outputInterval	50;
+        surfaceFormat   vtk;
+        fields          ( voidfraction U Us );
+        interpolationScheme cellPoint;
+        surfaces
+        (
+            yNormal
+            {
+                type cuttingPlane;
+                planeType pointAndNormal;
+                pointAndNormalDict
+                {
+                    basePoint (0 0 0);
+                    normalVector (1 0 0);
+                }
+                interpolate true;
+            }
+        );
+    }
+
+}
+// ************************************************************************* //
