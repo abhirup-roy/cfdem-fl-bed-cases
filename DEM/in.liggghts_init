@@ -1,3 +1,6 @@
+# ESKAL 150 CASE
+# NO CG
+
 echo            both
 log             ../DEM/log.liggghts
 thermo_log      ../DEM/post/thermo.txt
@@ -46,11 +49,11 @@ region  bc cylinder z 0.0 0.0 0.024 0. 0.38 units box
 
 variable dens equal 2700
 
-variable r_ft4 equal 0.000150
+variable r_ft4 equal 0.000075
 fix     pts_ft4  all particletemplate/sphere 20437751 atom_type 1 density constant ${dens} radius constant ${r_ft4}
 fix     pdd all particledistribution/discrete/numberbased 49979693 1 pts_ft4 1
 
-fix     ins all insert/pack seed 32452843 distributiontemplate pdd1 maxattempt 200 vel constant 0. 0. 0. insert_every once overlapcheck yes all_in yes mass_in_region 0.0849 region bc
+fix     ins all insert/pack seed 32452843 distributiontemplate pdd maxattempt 200 vel constant 0. 0. 0. insert_every once overlapcheck yes all_in yes mass_in_region 0.0849 region bc
 
 
 # apply nve integration to all particles that are inserted as single particles

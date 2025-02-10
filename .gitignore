@@ -29,3 +29,4 @@ DEM/postGlobal/*
 DEM/post/*.*
 DEM/post/tracer/*
 DEM/post/restart/*
+postprocessing/probe_pressure*

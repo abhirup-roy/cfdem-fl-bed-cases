@@ -105,6 +105,67 @@ functions
                 }
                 interpolate true;
             }
+
+            zNormal0
+            {
+                type cuttingPlane;
+                planeType pointAndNormal;
+                pointAndNormalDict
+                {
+                    basePoint (0 0 0.0005);
+                    normalVector (0 0 1);
+                }
+                interpolate true;
+            }
+
+            zNormal1
+            {
+                type cuttingPlane;
+                planeType pointAndNormal;
+                pointAndNormalDict
+                {
+                    basePoint (0 0 0.025);
+                    normalVector (0 0 1);
+                }
+                interpolate true;
+            }
+
+            zNormal2
+            {
+                type cuttingPlane;
+                planeType pointAndNormal;
+                pointAndNormalDict
+                {
+                    basePoint (0 0 0.05);
+                    normalVector (0 0 1);
+                }
+                interpolate true;
+            }
+
+            zNormal3
+            {
+                type cuttingPlane;
+                planeType pointAndNormal;
+                pointAndNormalDict
+                {
+                    basePoint (0 0 0.075);
+                    normalVector (0 0 1);
+                }
+                interpolate true;
+            }
+
+            zNormal4
+            {
+                type cuttingPlane;
+                planeType pointAndNormal;
+                pointAndNormalDict
+                {
+                    basePoint (0 0 0.1);
+                    normalVector (0 0 1);
+                }
+                interpolate true;
+            }
+
         );
     }
 
