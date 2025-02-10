@@ -47,9 +47,9 @@ fix      wall all wall/gran model hertz tangential history mesh n_meshes 3 meshe
 # particle distributions and insertion
 region  bc cylinder z 0.0 0.0 0.024 0. 0.38 units box
 
-variable dens equal 2700
+variable dens equal 1109
 
-variable r_ft4 equal 0.000075
+variable r_ft4 equal 0.000183
 fix     pts_ft4  all particletemplate/sphere 20437751 atom_type 1 density constant ${dens} radius constant ${r_ft4}
 fix     pdd all particledistribution/discrete/numberbased 49979693 1 pts_ft4 1
 
