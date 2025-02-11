@@ -32,3 +32,4 @@ DEM/post/restart/*
 DEM/post/dump*
 DEM/post/forces.txt
 postprocessing/probe_pressure*
+postprocessing/plot_P/pressure_vel_plot*
