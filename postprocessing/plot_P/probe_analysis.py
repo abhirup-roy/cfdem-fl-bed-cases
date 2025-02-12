@@ -7,30 +7,39 @@ import plotly.express as px
 
 class ProbeAnalysis():
 
-    def __init__(self, probe_path, nprobes, probes_text_path, dump2csv=True):
+    def __init__(self, pressure_path, nprobes, velcfg_path, dump2csv=True, plots_dir='../../plots/'):
         """
-        probe_path: Path to the probe file
+        pressure_path: Path to the pressure data
         nprobes: Number of probes
-        probes_text_path: Path to the probes.txt file
+        velcfg_path: Path to the vel_cfg file
         dump2csv: Save the probe data to a csv file
         """
-        self.probe_path = probe_path
+        if not os.path.exists(pressure_path):
+            raise Exception(f"Pressure data at {pressure_path} does not exist")
+        if not os.path.exists(velcfg_path):
+            raise Exception(f"Velocity config at {velcfg_path} does not exist")
+        if not os.path.isdir(plots_dir):
+            raise Exception(f" Plots directory at {plots_dir} does not exist")
+
+        self.pressure_path = pressure_path
         self.nprobes = nprobes
         self.dump2csv = dump2csv
-        self.probes_text_path = probes_text_path
+        self.velcfg_path = velcfg_path
+        self.plots_dir = plots_dir
 
         self._probe2df()
     
     def _probe2df(self):
-        if not os.path.exists(probe_path):
-            raise Exception(f"Path {probe_path} does not exist")
+        """
+        Convert the probe data to a pandas dataframe, with data indexed by time. Dump if specified
+        """
 
         headers = ["Probe Time"]
         for i in range(self.nprobes):
             headers.append(f"Probe {i}")
 
         self.probe_df = pd.read_csv(
-            probe_path, 
+            self.pressure_path, 
             delim_whitespace=True, 
             comment='#', 
             names=headers, 
@@ -39,22 +48,31 @@ class ProbeAnalysis():
 
         if self.dump2csv:
             self.probe_df.to_csv("probe_pressure.csv")
-    def plot_probe(self, plot_backend = "plotly"):
+
+    def plot_probe(self, plot_backend):
+        """
+        Plot the pressure data at the probes ported to matplotlib or plotly
+
+        plot_backend: "matplotlib" or "plotly"
+        """
 
         pd.options.plotting.backend = plot_backend
 
         if plot_backend == "plotly":
             probe_px = self.probe_df.plot(title="Pressure at Probes", template="simple_white",
                         labels=dict(index="Time (s)", value="Pressure", variable="Probe"))
-            probe_px.write_html("probe_pressure.html")
+            probe_px.write_html(self.plots_dir+"probe_pressure.html")
 
         elif plot_backend == "matplotlib":
             plt.figure(figsize=[30,20])
             self.probe_df.plot(xlabel="Time (s)", ylabel="Pressure (Pa)", title="Pressure at Probes")
-            plt.savefig("probe_pressure.png")
+            plt.savefig(self.plots_dir+"probe_pressure.png")
     
     def _read_probetxt(self):
-        with open(self.probes_text_path, "r") as f:
+        """
+        Read the velocity config file
+        """
+        with open(self.velcfg_path, "r") as f:
             probe_text = f.read().splitlines(False)
 
             self.t = []
@@ -68,6 +86,9 @@ class ProbeAnalysis():
             print("Corresponding vel: ", self.v_z)
 
     def _calc_vel(self):
+        """
+        Map the velocity to pressure
+        """
         bounds = []
         vel =[]
         
@@ -79,46 +100,55 @@ class ProbeAnalysis():
                 vel.append(self.v_z[i])
             else:
                 pass
-        
-        # def _vel_mask(df, bounds, vel):
-        #     for i in range(len(bounds)):
-        #         if df["Probe Time"] < bounds[i][0] and df["Probe Time"] > bounds[i][1]:
-        #             df["V_z"] = vel[i]
-        #         else: pass
-        # self.probe_df = self.probe_df.apply(_vel_mask, args=(bounds, vel), axis=1)
 
         lb = [b[0] for b in bounds]
         ub = [b[1] for b in bounds]
-        try:
-            vz_arr = np.zeros_like(self.probe_df.index.to_numpy())
-        
-            for i in range(len(bounds)):
-                mask = (self.probe_df.index.to_numpy() > lb[i]) & (self.probe_df.index.to_numpy() < ub[i])
-                vz_arr[mask] = vel[i]
-        except:
-            print(self.probe_df)
+        vz_arr = np.zeros_like(self.probe_df.index.to_numpy())
+    
+        for i in range(len(bounds)):
+            mask = (self.probe_df.index.to_numpy() > lb[i]) & (self.probe_df.index.to_numpy() < ub[i])
+            vz_arr[mask] = vel[i]
 
+            if i < len(bounds) - 1:
+                gap_mask = (self.probe_df.index.to_numpy() >= ub[i]) & (self.probe_df.index.to_numpy() <= lb[i + 1])
+                vz_arr[gap_mask] = np.nan
+            
         self.probe_df["V_z"] = vz_arr
+
+        
 
 
     def plot_pressure_v(self):
+        """
+        Plot the pressure data at the probes against the velocity
+        """
         self._calc_vel()
 
-        print(self.probe_df)
-        plt.figure(figsize=[30,20])
-        for i in range(self.nprobes):
-            plt.scatter(self.probe_df["V_z"], self.probe_df[f"Probe {i}"], label=f"Probe {i}",)
-            
-        plt.legend()
-        plt.savefig("pressure_vel_plot.png")
+        # print(self.probe_df)
+        plt.figure(figsize=[20,10])
+        
+        vel_plot_df = self.probe_df.groupby("V_z",).mean()
+        vel_plot_df.loc[0] = 0
+
+        pd.options.plotting.backend = "matplotlib"
+        vel_plot_df.plot(xlabel="Velocity (m/s)", ylabel="Pressure (Pa)", title="Pressure vs Velocity", marker="o")
+
+
+        plt.savefig(self.plots_dir + "pressure_vel_plot.png")
     
 
 
 if __name__ == "__main__":
-    probe_path = '../../CFD/postProcessing/probes/0/p'
-    probes_text_path = 'probes_txt'
+    pressure_path = '../../CFD/postProcessing/probes/0/p'
+    velcfg_path = 'velcfg.txt'
 
-    probe_cfdem = ProbeAnalysis(probe_path=probe_path, nprobes=5, probes_text_path=probes_text_path, dump2csv=True)
+    probe_cfdem = ProbeAnalysis(
+        pressure_path=pressure_path,
+        nprobes=5,
+        velcfg_path=velcfg_path,
+        dump2csv=True
+    )
+    
     probe_cfdem.plot_probe(plot_backend="plotly")
     probe_cfdem.plot_probe(plot_backend="matplotlib")
     probe_cfdem.plot_pressure_v()
