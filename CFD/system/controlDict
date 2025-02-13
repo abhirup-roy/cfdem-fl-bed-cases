@@ -106,7 +106,7 @@ functions
                 interpolate true;
             }
 
-            zNormal0
+            zNormal0git 
             {
                 type cuttingPlane;
                 planeType pointAndNormal;
