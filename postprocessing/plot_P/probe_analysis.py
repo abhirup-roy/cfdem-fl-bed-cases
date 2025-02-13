@@ -98,6 +98,10 @@ class ProbeAnalysis():
             if self.v_z[i] == self.v_z[i+1]:
                 bounds.append([self.t[i], self.t[i+1]])
                 vel.append(self.v_z[i])
+
+                if self.v_z[i] == max(self.v_z):
+                    max_vel_t1, max_vel_t2 = self.t[i], self.t[i+1]
+
             else:
                 pass
 
@@ -115,6 +119,17 @@ class ProbeAnalysis():
             
         self.probe_df["V_z"] = vz_arr
 
+
+        def map_direction(x):
+            if x < max_vel_t1:
+                return "up"
+            elif x >= max_vel_t1 and x <= max_vel_t2:
+                return "max"
+            else:
+                return "down"
+
+        self.probe_df["direction"] = self.probe_df.index.to_series().apply(map_direction)
+
         
 
 
@@ -127,12 +142,27 @@ class ProbeAnalysis():
         # print(self.probe_df)
         plt.figure(figsize=[20,10])
         
-        vel_plot_df = self.probe_df.groupby("V_z",).mean()
-        vel_plot_df.loc[0] = 0
+        vel_plot_df = self.probe_df.groupby(["direction", "V_z"]).mean()
+        vel_plot_df.loc[vel_plot_df.index.get_level_values('V_z') == 0, :] = 0
 
         pd.options.plotting.backend = "matplotlib"
-        vel_plot_df.plot(xlabel="Velocity (m/s)", ylabel="Pressure (Pa)", title="Pressure vs Velocity", marker="o")
+         
+        vel_up = vel_plot_df[
+            vel_plot_df.index.get_level_values(level='direction').isin(["up", "max"])
+        ].reset_index('direction', drop=True
+        ).sort_index()
+        
+        vel_down = vel_plot_df[
+            vel_plot_df.index.get_level_values(level='direction').isin(["down", "max"])
+        ].reset_index('direction', drop=True
+        ).sort_index()
+        
+        for i in range(self.nprobes):
+            plt.plot(vel_up.index, vel_up[self.probe_df.columns[i]], label=self.probe_df.columns[i], color=f'C{i}', marker='o')
+            plt.plot(vel_down.index, vel_down[self.probe_df.columns[i]], label=self.probe_df.columns[i], color=f'C{i}', marker='o', linestyle='dashed')
 
+        plt.xlabel(r"Velocity (m s^{-1})")
+        plt.ylabel(r"Pressure (Pa)")
 
         plt.savefig(self.plots_dir + "pressure_vel_plot.png")
     
