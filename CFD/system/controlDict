@@ -23,7 +23,7 @@ startTime       0;
 
 stopAt          endTime;//writeNow;//endTime;//writeNow;//
 
-endTime         13.7;
+endTime         11.5;
 
 deltaT          0.0005;
 
@@ -88,9 +88,9 @@ functions
         type            surfaces;
         functionObjectLibs ( "libsampling.so" );
         outputControl   timeStep; //outputTime;
-	outputInterval	50;
+	    outputInterval	50;
         surfaceFormat   vtk;
-        fields          ( voidfraction U Us );
+        fields          ( voidfraction U Us p);
         interpolationScheme cellPoint;
         surfaces
         (
@@ -106,7 +106,7 @@ functions
                 interpolate true;
             }
 
-            zNormal0
+            zNormal0git 
             {
                 type cuttingPlane;
                 planeType pointAndNormal;
