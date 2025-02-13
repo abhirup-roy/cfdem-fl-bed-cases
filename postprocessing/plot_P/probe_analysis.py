@@ -119,6 +119,7 @@ class ProbeAnalysis():
             
         self.probe_df["V_z"] = vz_arr
 
+
         def map_direction(x):
             if x < max_vel_t1:
                 return "up"
@@ -128,6 +129,7 @@ class ProbeAnalysis():
                 return "down"
 
         self.probe_df["direction"] = self.probe_df.index.to_series().apply(map_direction)
+
         
 
 
@@ -161,6 +163,7 @@ class ProbeAnalysis():
 
         plt.xlabel(r"Velocity (m s^{-1})")
         plt.ylabel(r"Pressure (Pa)")
+
         plt.savefig(self.plots_dir + "pressure_vel_plot.png")
     
 
