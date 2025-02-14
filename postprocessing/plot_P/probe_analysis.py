@@ -4,20 +4,26 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import plotly.express as px
+import pyvista as pv
 
 class ProbeAnalysis():
 
-    def __init__(self, pressure_path, nprobes, velcfg_path, dump2csv=True, plots_dir='../../plots/'):
+    def __init__(self, pressure_path, nprobes, use_slices, velcfg_path, dump2csv=True, plots_dir='../../plots/'):
         """
-        pressure_path: Path to the pressure data
-        nprobes: Number of probes
-        velcfg_path: Path to the vel_cfg file
-        dump2csv: Save the probe data to a csv file
-        plots_dir: Directory to save the plots
+        STRING  pressure_path: Path to the pressure data. If using slices, point to cuttingPlane directory. 
+        INT     nprobes: Number of probes
+        BOOL    use_slices: Use slices to plot the data. If False, the data is plotted using single probe points
+        STRING  velcfg_path: Path to the vel_cfg file
+        BOOL    dump2csv: Save the probe data to a csv file
+        STRING  plots_dir: Directory to save the plots
         """
         # Check if the paths exist
         if not os.path.exists(pressure_path):
             raise Exception(f"Pressure data at {pressure_path} does not exist")
+        
+        if use_slices and not os.path.isdir(pressure_path):
+                raise Exception(f"Pressure data at {pressure_path} does not exist")
+                
         if not os.path.exists(velcfg_path):
             raise Exception(f"Velocity config at {velcfg_path} does not exist")
         if not os.path.isdir(plots_dir):
@@ -28,6 +34,7 @@ class ProbeAnalysis():
         self.dump2csv = dump2csv
         self.velcfg_path = velcfg_path
         self.plots_dir = plots_dir
+        self.use_slices = use_slices
 
         self._probe2df()
     
@@ -35,18 +42,51 @@ class ProbeAnalysis():
         """
         Convert the probe data to a pandas dataframe, with data indexed by time. Dump if specified
         """
-        # Make df from the probe data
-        headers = ["Probe Time"]
-        for i in range(self.nprobes):
-            headers.append(f"Probe {i}")
+        if self.use_slices:
+            times = os.listdir(self.pressure_path)
+            probes_pressure_dict = dict()
 
-        self.probe_df = pd.read_csv(
-            self.pressure_path, 
-            delim_whitespace=True, 
-            comment='#', 
-            names=headers, 
-            header=None,
-        ).set_index("Probe Time")
+            for dir in times:
+                p_lst = []
+                pdata = pv.read(self.pressure_path + '/' + dir + '/p_zNormal0git.vtk')
+                p_arr = pdata.get_array('p')
+                p_lst.append(p_arr.mean().item())
+                
+                pdata = pv.read(self.pressure_path + '/' + dir + '/p_zNormal1.vtk')
+                p_arr = pdata.get_array('p')
+                p_lst.append(p_arr.mean().item())
+
+                pdata = pv.read(self.pressure_path + '/' + dir + '/p_zNormal2.vtk')
+                p_arr = pdata.get_array('p')
+                p_lst.append(p_arr.mean().item())
+
+                pdata = pv.read(self.pressure_path + '/' + dir + '/p_zNormal3.vtk')
+                p_arr = pdata.get_array('p')
+                p_lst.append(p_arr.mean().item())
+
+                pdata = pv.read(self.pressure_path + '/' + dir + '/p_zNormal4.vtk')
+                p_arr = pdata.get_array('p')
+                p_lst.append(p_arr.mean().item())
+
+                probes_pressure_dict[float(dir)] = p_lst
+            
+            self.probe_df = pd.DataFrame.from_dict(
+                probes_pressure_dict, orient='index',columns=[f"Probe {i}" for i in range(self.nprobes)]
+            ).sort_index()
+            
+        else:    
+        # Make df from the probe data
+            headers = ["Probe Time"]
+            for i in range(self.nprobes):
+                headers.append(f"Probe {i}")
+
+            self.probe_df = pd.read_csv(
+                self.pressure_path, 
+                delim_whitespace=True, 
+                comment='#', 
+                names=headers, 
+                header=None,
+            ).set_index("Probe Time")
 
         # Dump to csv if specified
         if self.dump2csv:
@@ -175,7 +215,12 @@ class ProbeAnalysis():
         plt.xlabel("Velocity (m/s)")
         plt.ylabel("Pressure (Pa)")
 
-        plt.savefig(self.plots_dir + "pressure_vel_plot.png")
+        if self.use_slices:
+            plt.title("Pressure vs Velocity for Probes (Slices)")
+            plt.savefig(self.plots_dir + "pressure_vel_plot_slice.png")
+        else:
+            plt.title("Pressure vs Velocity for Probes (Single Points)")
+            plt.savefig(self.plots_dir + "pressure_vel_plot_probes.png")
     
 
 
@@ -186,6 +231,7 @@ if __name__ == "__main__":
     probe_cfdem = ProbeAnalysis(
         pressure_path=pressure_path,
         nprobes=5,
+        use_slices=False,
         velcfg_path=velcfg_path,
         dump2csv=True
     )
@@ -193,3 +239,16 @@ if __name__ == "__main__":
     probe_cfdem.plot_probe(plot_backend="plotly")
     probe_cfdem.plot_probe(plot_backend="matplotlib")
     probe_cfdem.plot_pressure_v()
+
+    # For slices
+    pressure_path = '../../CFD/postProcessing/cuttingPlane/'
+
+    probe_cfdem_slices = ProbeAnalysis(
+        pressure_path=pressure_path,
+        nprobes=5,
+        use_slices=True,
+        velcfg_path=velcfg_path,
+        dump2csv=True
+    )
+
+    probe_cfdem_slices.plot_pressure_v()
