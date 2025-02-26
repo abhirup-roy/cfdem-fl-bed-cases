@@ -280,9 +280,7 @@ class ProbeAnalysis():
         self._calc_vel(df=voidfrac_df)
         
         vel_plot_df = voidfrac_df.groupby(["direction", "V_z"]).mean()
-        # Set the void fraction at zero velocity to zero
-        vel_plot_df.loc[vel_plot_df.index.get_level_values('V_z') == 0, :] = 0
-
+    
         # Sort the data for plotting
         vel_up = vel_plot_df[
             vel_plot_df.index.get_level_values(level='direction').isin(["up", "max"])
