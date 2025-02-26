@@ -2,7 +2,9 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import rcParams
 import pandas as pd
+
 import plotly.express as px
 import pyvista as pv
 
@@ -36,6 +38,7 @@ class ProbeAnalysis():
         self.plots_dir = plots_dir
         self.use_slices = use_slices
 
+        rcParams.update({'font.size': 20})
         # self._probe2df()
     
     def _probe2df(self):
