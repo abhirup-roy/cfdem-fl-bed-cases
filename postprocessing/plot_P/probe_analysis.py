@@ -36,7 +36,7 @@ class ProbeAnalysis():
         self.plots_dir = plots_dir
         self.use_slices = use_slices
 
-        self._probe2df()
+        # self._probe2df()
     
     def _probe2df(self):
         """
@@ -48,7 +48,7 @@ class ProbeAnalysis():
 
             for dir in times:
                 p_lst = []
-                pdata = pv.read(self.pressure_path + '/' + dir + '/p_zNormal0git.vtk')
+                pdata = pv.read(self.pressure_path + '/' + dir + '/p_zNormal0.vtk')
                 p_arr = pdata.get_array('p')
                 p_lst.append(p_arr.mean().item())
                 
@@ -70,9 +70,10 @@ class ProbeAnalysis():
 
                 probes_pressure_dict[float(dir)] = p_lst
             
-            self.probe_df = pd.DataFrame.from_dict(
+            probe_df = pd.DataFrame.from_dict(
                 probes_pressure_dict, orient='index',columns=[f"Probe {i}" for i in range(self.nprobes)]
             ).sort_index()
+            
             
         else:    
         # Make df from the probe data
@@ -80,7 +81,7 @@ class ProbeAnalysis():
             for i in range(self.nprobes):
                 headers.append(f"Probe {i}")
 
-            self.probe_df = pd.read_csv(
+            probe_df = pd.read_csv(
                 self.pressure_path, 
                 delim_whitespace=True, 
                 comment='#', 
@@ -90,7 +91,9 @@ class ProbeAnalysis():
 
         # Dump to csv if specified
         if self.dump2csv:
-            self.probe_df.to_csv("probe_pressure.csv")
+            probe_df.to_csv("probe_pressure.csv")
+
+        return probe_df
 
     def plot_probe(self, plot_backend):
         """
@@ -98,17 +101,19 @@ class ProbeAnalysis():
 
         plot_backend: "matplotlib" for png or "plotly" for interactive html
         """
+        probe_df = self._probe2df()
+
         # Plotly backend
         pd.options.plotting.backend = plot_backend
 
         if plot_backend == "plotly":
-            probe_px = self.probe_df.plot(title="Pressure at Probes", template="simple_white",
+            probe_px = probe_df.plot(title="Pressure at Probes", template="simple_white",
                         labels=dict(index="Time (s)", value="Pressure", variable="Probe"))
             probe_px.write_html(self.plots_dir+"probe_pressure.html")
 
         elif plot_backend == "matplotlib":
             plt.figure(figsize=[30,20])
-            self.probe_df.plot(xlabel="Time (s)", ylabel="Pressure (Pa)", title="Pressure at Probes")
+            probe_df.plot(xlabel="Time (s)", ylabel="Pressure (Pa)", title="Pressure at Probes")
             plt.savefig(self.plots_dir+"probe_pressure.png")
     
     def _read_probetxt(self):
@@ -129,7 +134,7 @@ class ProbeAnalysis():
             print("Selected times: ", self.t)
             print("Corresponding vel: ", self.v_z)
 
-    def _calc_vel(self):
+    def _calc_vel(self, df):
         """
         Map the velocity to pressure
         """
@@ -153,18 +158,18 @@ class ProbeAnalysis():
         # Lower and upper time bounds for each velocity 
         lb = [b[0] for b in bounds]
         ub = [b[1] for b in bounds]
-        vz_arr = np.zeros_like(self.probe_df.index.to_numpy())
+        vz_arr = np.zeros_like(df.index.to_numpy())
 
         # Map the velocity to the pressure data
         for i in range(len(bounds)):
-            mask = (self.probe_df.index.to_numpy() > lb[i]) & (self.probe_df.index.to_numpy() < ub[i])
+            mask = (df.index.to_numpy() > lb[i]) & (df.index.to_numpy() < ub[i])
             vz_arr[mask] = vel[i]
 
             if i < len(bounds) - 1:
-                gap_mask = (self.probe_df.index.to_numpy() >= ub[i]) & (self.probe_df.index.to_numpy() <= lb[i + 1])
+                gap_mask = (df.index.to_numpy() >= ub[i]) & (df.index.to_numpy() <= lb[i + 1])
                 vz_arr[gap_mask] = np.nan
             
-        self.probe_df["V_z"] = vz_arr
+        df["V_z"] = vz_arr
 
 
         def _map_direction(x):
@@ -178,23 +183,22 @@ class ProbeAnalysis():
             else:
                 return "down"
         # Add direction to the dataframe
-        self.probe_df["direction"] = self.probe_df.index.to_series().apply(_map_direction)
-
-        
+        df["direction"] = df.index.to_series().apply(_map_direction)
 
 
     def plot_pressure_v(self):
         """
         Plot the pressure data at the probes against the velocity
         """
-        self._calc_vel()
+        probe_df = self._probe2df()
+        self._calc_vel(df=probe_df)
 
         # Create the plot
         plt.figure(figsize=[20,10])
         
         # Use groupby to get the mean pressure at each velocity for increasing, decreasing and max velocity
-        vel_plot_df = self.probe_df.groupby(["direction", "V_z"]).mean()
-        # Set the pressure at zero velocity to zero
+        vel_plot_df = probe_df.groupby(["direction", "V_z"]).mean()
+        # Set the void fraction at zero velocity to zero
         vel_plot_df.loc[vel_plot_df.index.get_level_values('V_z') == 0, :] = 0
         
         # Sort the data for plotting
@@ -209,11 +213,12 @@ class ProbeAnalysis():
         ).sort_index()
         
         for i in range(self.nprobes):
-            plt.plot(vel_up.index, vel_up[self.probe_df.columns[i]], label=self.probe_df.columns[i], color=f'C{i}', marker='o')
-            plt.plot(vel_down.index, vel_down[self.probe_df.columns[i]], label=self.probe_df.columns[i], color=f'C{i}', marker='o', linestyle='dashed')
+            plt.plot(vel_up.index, vel_up[probe_df.columns[i]], label=f"{probe_df.columns[i]} (Up)", color=f'C{i}', marker='o')
+            plt.plot(vel_down.index, vel_down[probe_df.columns[i]], label=f"{probe_df.columns[i]} (Down)", color=f'C{i}', marker='o', linestyle='dashed')
 
         plt.xlabel("Velocity (m/s)")
         plt.ylabel("Pressure (Pa)")
+        plt.legend()
 
         if self.use_slices:
             plt.title("Pressure vs Velocity for Probes (Slices)")
@@ -221,10 +226,90 @@ class ProbeAnalysis():
         else:
             plt.title("Pressure vs Velocity for Probes (Single Points)")
             plt.savefig(self.plots_dir + "pressure_vel_plot_probes.png")
+
     
+    def _read_voidfrac(self, post_dir):
+        """
+        Read the void fraction data
+        """
+
+        times = os.listdir(post_dir)
+
+        voidfrac_dict = dict()
+        for dir in times:
+            voidfrac_lst = []
+
+            void_data = pv.read(post_dir + '/' + dir + '/voidfraction_zNormal0.vtk')
+            voidfrac_arr = void_data.get_array('voidfraction')
+            voidfrac_lst.append(voidfrac_arr.mean().item())
+            
+            void_data = pv.read(post_dir + '/' + dir + '/voidfraction_zNormal1.vtk')
+            voidfrac_arr = void_data.get_array('voidfraction')
+            voidfrac_lst.append(voidfrac_arr.mean().item())
+
+            void_data = pv.read(post_dir + '/' + dir + '/voidfraction_zNormal2.vtk')
+            voidfrac_arr = void_data.get_array('voidfraction')
+            voidfrac_lst.append(voidfrac_arr.mean().item())
+
+            void_data = pv.read(post_dir + '/' + dir + '/voidfraction_zNormal3.vtk')
+            voidfrac_arr = void_data.get_array('voidfraction')
+            voidfrac_lst.append(voidfrac_arr.mean().item())
+
+            void_data = pv.read(post_dir + '/' + dir + '/voidfraction_zNormal4.vtk')
+            voidfrac_arr = void_data.get_array('voidfraction')
+            voidfrac_lst.append(voidfrac_arr.mean().item())
+
+            voidfrac_dict[float(dir)] = voidfrac_lst
+            # print("Void frac dict", voidfrac_dict)
+            
+
+        return voidfrac_dict
+    
+    def plot_voidfrac_v(self, post_dir="../../CFD/postProcessing/cuttingPlane/"):
+        """
+        Plot the void fraction data
+        """
+        voidfrac_dict = self._read_voidfrac(post_dir)
+        voidfrac_df = pd.DataFrame.from_dict(
+            voidfrac_dict, orient='index', columns=[f"Probe {i}" for i in range(self.nprobes)]
+        ).sort_index()
+
+        self._calc_vel(df=voidfrac_df)
+        
+        vel_plot_df = voidfrac_df.groupby(["direction", "V_z"]).mean()
+        # Set the void fraction at zero velocity to zero
+        vel_plot_df.loc[vel_plot_df.index.get_level_values('V_z') == 0, :] = 0
+
+        # Sort the data for plotting
+        vel_up = vel_plot_df[
+            vel_plot_df.index.get_level_values(level='direction').isin(["up", "max"])
+        ].reset_index('direction', drop=True).sort_index()
+        # print("Vel up", vel_up)
+
+        vel_down = vel_plot_df[
+            vel_plot_df.index.get_level_values(level='direction').isin(["down", "max"])
+        ].reset_index('direction', drop=True).sort_index()
+        
+        fig = plt.figure(figsize=[20,10])
+
+        for i in range(self.nprobes):
+            plt.plot(vel_up.index, vel_up[voidfrac_df.columns[i]], label=f"Probe {i} (Up)", color=f'C{i}', marker='o')
+            plt.plot(vel_down.index, vel_down[voidfrac_df.columns[i]], label=f"Probe {i} (Down)", color=f'C{i}', marker='o', linestyle='dashed')
+
+        plt.xlabel("Velocity (m/s)")
+        plt.ylabel("Void Fraction (-)")
+        plt.legend()
+        plt.title("Void Fraction vs Velocity")
+        plt.savefig(self.plots_dir + "voidfrac_vel_plot.png")
+
+
+
+
+
 
 
 if __name__ == "__main__":
+    # For probes
     pressure_path = '../../CFD/postProcessing/probes/0/p'
     velcfg_path = 'velcfg.txt'
 
@@ -239,6 +324,7 @@ if __name__ == "__main__":
     probe_cfdem.plot_probe(plot_backend="plotly")
     probe_cfdem.plot_probe(plot_backend="matplotlib")
     probe_cfdem.plot_pressure_v()
+    probe_cfdem.plot_voidfrac_v()
 
     # For slices
     pressure_path = '../../CFD/postProcessing/cuttingPlane/'
