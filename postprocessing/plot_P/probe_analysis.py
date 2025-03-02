@@ -322,55 +322,6 @@ class ProbeAnalysis():
             plt.legend()
             plt.title("Void Fraction vs Velocity")
             
-        #     for i in range(self.nprobes):
-        #         if slice_dirn == "y":
-        #             plt.plot(vel_up.index, vel_up['void_frac'], label=f"Probe {i} (Up)", color=f'C{i}', marker='o')
-        #             plt.plot(vel_down.index, vel_down['void_frac'], label=f"Probe {i} (Down)", color=f'C{i}', marker='o', linestyle='dashed')
-        #         else:
-        #             plt.plot(vel_up.index, vel_up[voidfrac_df.columns[i]], label=f"Probe {i} (Up)", color=f'C{i}', marker='o')
-        #             plt.plot(vel_down.index, vel_down[voidfrac_df.columns[i]], label=f"Probe {i} (Down)", color=f'C{i}', marker='o', linestyle='dashed')
-                
-
-        #         plt.xlabel("Velocity (m/s)")
-        #         plt.ylabel("Void Fraction (-)")
-        #         plt.legend()
-        #         plt.title("Void Fraction vs Velocity (Z-Normal Slices)")
-        #         plt.savefig(self.plots_dir + f"{png_name}.png") if png_name else plt.savefig(self.plots_dir + "voidfrac_vel_plot_z0-4.png")
-                
-        # if slice_dirn=="y":
-        #     voidfrac_dict = self._read_voidfrac(post_dir, slice_dirn=slice_dirn)
-                
-        #     voidfrac_dict = {k: self.find_cdfmedian(v) for k,v in voidfrac_dict.items()}
-        #     voidfrac_df = pd.DataFrame.from_dict(voidfrac_dict, orient='index', columns=['void_frac']).sort_index()
-        #     if x_var == "time":
-        #         voidfrac_df.plot(xlabel="Time (s)", ylabel="Void Fraction (-)", title="Void Fraction vs Time (Y-Normal Slice)")
-        #         plt.savefig(self.plots_dir + f"{png_name}.png") if png_name else plt.savefig(self.plots_dir + "voidfrac_time_plot_y.png") 
-        #     elif x_var == "velocity":
-        #         self._calc_vel(df=voidfrac_df)
-
-        #         vel_plot_df = voidfrac_df.groupby(["direction", "V_z"]).mean()
-
-        #         # Sort the data for plotting
-        #         vel_up = vel_plot_df[
-        #             vel_plot_df.index.get_level_values(level='direction').isin(["up", "max"])
-        #         ].reset_index('direction', drop=True).sort_index()
-
-        #         vel_down = vel_plot_df[
-        #             vel_plot_df.index.get_level_values(level='direction').isin(["down", "max"])
-        #         ].reset_index('direction', drop=True).sort_index()
-                
-        #         plt.plot(vel_up.index, vel_up['void_frac'], label=r"$V_z$ Increasing", color='C0', marker='o')
-        #         plt.plot(vel_down.index, vel_down['void_frac'], label=r"$V_z$ Increasing", color='C0', marker='o', linestyle='dashed')
-
-        #     plt.xlabel("Velocity (m/s)")
-        #     plt.ylabel("Void Fraction (-)")
-        #     plt.legend()
-        #     plt.title("Void Fraction vs Velocity (Y-Normal Slice)")
-        #     plt.savefig(self.plots_dir + f"{png_name}.png") if png_name else plt.savefig(self.plots_dir + "voidfrac_vel_plot_y.png")
-
-
-
-
 if __name__ == "__main__":
 
     pressure_path = '../../CFD/postProcessing/cuttingPlane/'
