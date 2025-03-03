@@ -199,7 +199,7 @@ class ProbeAnalysis():
         STRING png_name (optional): Name of the png file to save the plot. If not specified, the filename is selected automatically
         BOOL use_slices (optional): Use slices or probes. Default is True
         """
-        if slice_dirn is not None:
+        if slice_dirn == "y":
             warn("Aggregating pressure data using y-slices can yield inaccurate results. Use with caution")
 
         fig = plt.figure(figsize=[20,10])
@@ -335,6 +335,8 @@ class ProbeAnalysis():
             plt.ylabel("Void Fraction (-)")
             plt.legend()
             plt.title("Void Fraction vs Velocity")
+
+            plt.savefig(self.plots_dir + f"{png_name}.png") if png_name else plt.savefig(self.plots_dir + f"voidfrac_vel_plot_{slice_dirn}.png")
             
 if __name__ == "__main__":
 
@@ -381,6 +383,6 @@ if __name__ == "__main__":
     
     probe_cfdem_slices.plot_voidfrac(
         slice_dirn="y", 
-        x_var="time",
+        x_var="velocity",
         png_name="voidfrac_time_plot_y"
     )
