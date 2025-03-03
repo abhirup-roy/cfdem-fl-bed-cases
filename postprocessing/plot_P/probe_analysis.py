@@ -1,13 +1,13 @@
-
 #!/usr/bin/env python3
+
 import os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
 import pandas as pd
 
-import plotly.express as px
 import pyvista as pv
+from warnings import warn
 
 class ProbeAnalysis():
 
@@ -36,7 +36,7 @@ class ProbeAnalysis():
 
         rcParams.update({'font.size': 20})
     
-    def _probe2df(self, use_slices, slice_dirn):
+    def _probe2df(self, use_slices, slice_dirn, y_agg):
         """
         Convert the probe data to a pandas dataframe, with data indexed by time. Dump if specified
         """
@@ -77,10 +77,18 @@ class ProbeAnalysis():
                 elif slice_dirn == "y":
                     pdata = pv.read(self.pressure_path+ '/' + dir + '/p_yNormal.vtk')
                     p_arr = pdata.get_array('p')
-                    pressure_dict[float(dir)] = p_arr
-
-                    pressure_dict = {k: self.find_cdfmedian(v) for k,v in pressure_dict.items()}
+                    
+                    if y_agg == 'cdf_median':
+                        pressure_dict[float(dir)] = p_arr
+                        pressure_dict = {k: self.find_cdfmedian(v) for k,v in pressure_dict.items()}
+                    elif y_agg == 'mean':
+                        pressure_dict[float(dir)] = p_arr.mean().item()
+                    elif y_agg == "median":
+                        pressure_dict[float(dir)] = np.median(p_arr)
+                    else:
+                        raise Exception("Invalid aggregation method. Choose 'cdf_median' or 'mean'")
                     pressure_df = pd.DataFrame.from_dict(pressure_dict, orient='index', columns=['pressure']).sort_index()
+                    pressure_df.to_csv("probe_pressure.csv")
 
                 else:
                     raise Exception("Invalid slice direction. Choose 'z' or 'y'")
@@ -183,7 +191,7 @@ class ProbeAnalysis():
                     median_idx = cdf.tolist().index(np.percentile(cdf,50,method='nearest'))
                     return x[median_idx].item()
  
-    def plot_pressure(self, x_var, png_name=None, use_slices=True, slice_dirn=None):
+    def plot_pressure(self, x_var, png_name=None, use_slices=True, slice_dirn=None, y_agg=None):
         """
         Plot the pressure data from simulation.
         STRING x_var: Variable to plot against. "time" for time, "velocity" for velocity.
@@ -191,10 +199,14 @@ class ProbeAnalysis():
         STRING png_name (optional): Name of the png file to save the plot. If not specified, the filename is selected automatically
         BOOL use_slices (optional): Use slices or probes. Default is True
         """
+        if slice_dirn is not None:
+            warn("Aggregating pressure data using y-slices can yield inaccurate results. Use with caution")
+
         fig = plt.figure(figsize=[20,10])
         plot_suffix = "slices" if use_slices else "probes"
-        pressure_df = self._probe2df(use_slices=use_slices, slice_dirn=slice_dirn)
+        pressure_df = self._probe2df(use_slices=use_slices, slice_dirn=slice_dirn,y_agg=y_agg)
 
+        
         if x_var == "time":
 
             pressure_df.plot(xlabel="Time (s)", ylabel="Pressure (Pa)", title=f"Pressure at {plot_suffix}")
@@ -220,8 +232,10 @@ class ProbeAnalysis():
                     plt.plot(vel_up.index, vel_up[pressure_df.columns[i]], label=f"Probe {i} (Up)", color=f'C{i}', marker='o')
                     plt.plot(vel_down.index, vel_down[pressure_df.columns[i]], label=f"Probe {i} (Down)", color=f'C{i}', marker='o', linestyle='dashed')
             else:
+
                 plt.plot(vel_up.index, vel_up['pressure'], label=r"$V_z$ Increasing", color='C0', marker='o')
                 plt.plot(vel_down.index, vel_down['pressure'], label=r"$V_z$ Increasing", color='C0', marker='o', linestyle='dashed')
+        
 
         plt.xlabel("Velocity (m/s)")
         plt.ylabel("Pressure (Pa)")
@@ -230,7 +244,7 @@ class ProbeAnalysis():
 
         plt.savefig(self.plots_dir + f"{png_name}.png") if png_name else plt.savefig(self.plots_dir + f"pressure_vel_plot_{plot_suffix}.png")
             
-    
+
     def _read_voidfrac(self, post_dir, slice_dirn):
         """
         Helper function to read the void fraction data using `pyvista`
@@ -338,11 +352,35 @@ if __name__ == "__main__":
     """
     Z-Normal Slices vs Time
     """
-    probe_cfdem_slices.plot_pressure(slice_dirn="z", x_var="time", png_name="pressure_time_plot_z", use_slices=True)
-    probe_cfdem_slices.plot_voidfrac(slice_dirn="z", x_var="time", png_name="voidfrac_time_plot_z")
+    # probe_cfdem_slices.plot_pressure(slice_dirn="z", x_var="time", png_name="pressure_time_plot_z", use_slices=True)
+    # probe_cfdem_slices.plot_voidfrac(slice_dirn="z", x_var="time", png_name="voidfrac_time_plot_z")
 
     """
     Y-Normal Slices vs Velocity
     """
-    probe_cfdem_slices.plot_pressure(slice_dirn="y", x_var="velocity", png_name="pressure_vel_plot_y", use_slices=True)
-    probe_cfdem_slices.plot_voidfrac(slice_dirn="y", x_var="velocity", png_name="voidfrac_vel_plot_y")
+    # probe_cfdem_slices.plot_pressure(slice_dirn="y", x_var="velocity", png_name="pressure_vel_plot_y", use_slices=True, y_agg='median')
+    # probe_cfdem_slices.plot_voidfrac(slice_dirn="y", x_var="velocity", png_name="voidfrac_vel_plot_y")
+
+    """
+    Y-Normal Slices vs Time
+    """
+    # probe_cfdem_slices.plot_pressure(slice_dirn="y", x_var="time", png_name="pressure_time_plot_y", use_slices=True, y_agg='median')
+    # probe_cfdem_slices.plot_voidfrac(slice_dirn="y", x_var="time", png_name="voidfrac_time_plot_y")
+
+    """
+    Z-normal Slices vs Velocity
+    """
+    # probe_cfdem_slices.plot_pressure(slice_dirn="z", x_var="velocity", png_name="pressure_vel_plot_z", use_slices=True)
+    # probe_cfdem_slices.plot_voidfrac(slice_dirn="z", x_var="velocity", png_name="voidfrac_vel_plot_z")
+
+    probe_cfdem_slices.plot_pressure(slice_dirn="z", 
+        x_var="velocity", 
+        png_name="pressure_vel_plot_z",
+        use_slices=True
+    )
+    
+    probe_cfdem_slices.plot_voidfrac(
+        slice_dirn="y", 
+        x_var="time",
+        png_name="voidfrac_time_plot_y"
+    )
