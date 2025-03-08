@@ -12,7 +12,6 @@
 module purge; 
 module load bluebear; 
 module load OpenFOAM/5.0-20180108-foss-2019a
-module load OpenMPI
 # Change to the directory the job was submitted from
 date;hostname;pwd
 
@@ -21,7 +20,7 @@ date;hostname;pwd
 # assigned to the job. No other flags are required
 #  - note: don't use 'mpirun'
 source $FOAM_BASH
-source ~/CFDEM-coffee/CFDEM-coffee/setvars.sh
+source ~/CFDEM-JKR/CFDEM/setvars.sh
 source	$CFDEM_bashrc
 
 #- define variables

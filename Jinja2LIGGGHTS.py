@@ -172,5 +172,5 @@ if __name__ == '__main__':
         contact_dumpstep = 2645
     )
 
-    # ltp.populate_jkr_template(autocomp_workofadhesion = True, surface_energy = 0.2e-3, young_mod = 5.4e6, poisson_ratio = 0.25, contact_dumpstep = 2645, dump_params = True)
+    ltp.populate_jkr_template(autocomp_workofadhesion = True, surface_energy = 0.2e-3, young_mod = 5.4e6, poisson_ratio = 0.25, contact_dumpstep = 2645, dump_params = True)
     # ltp.populate_sjkr_template(ced = 0, dump_params = True)
