@@ -82,11 +82,11 @@ compute_modify  thermo_temp dynamic yes
 
 # calculate number of contacts
 compute ppc all contact/atom
-compute sum_contact all reduce sum c_ppc
-variable n_contact equal c_ppc/2
+compute sumcontact all reduce sum c_ppc
+variable n_contact equal c_sumcontact/2
 
 variable n_atoms equal atoms
-variable t_sim equal step * dt
+variable t_sim equal step*dt
 
 # compute fc all pair/gran/local contactArea        # UNCOMMENT THIS LINE TO GET CONTACT AREA
 
