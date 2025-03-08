@@ -1,0 +1,113 @@
+echo            both
+log             ../DEM/log.liggghts
+thermo_log      ../DEM/post/thermo.txt
+
+atom_style      granular
+atom_modify     map array
+communicate     single vel yes
+
+boundary        m m m
+newton          off
+
+units           si
+processors      4 4 1
+
+# read the restart file
+read_restart    ../DEM/post/restart/liggghts.restart
+
+neighbor        0.00006 bin
+neigh_modify    delay 0
+
+# Material properties required for granular pair styles
+
+fix         m1 all property/global youngsModulus peratomtype {{YOUNG_MOD}}
+fix         m2 all property/global poissonsRatio peratomtype {{POISSON_RATIO}}
+fix         m3 all property/global coefficientRestitution peratomtypepair 1 0.8
+fix         m4 all property/global coefficientFriction peratomtypepair 1 0.86
+fix		    m5 all property/global workOfAdhesion peratomtypepair 1 {{WORKOFADHESION}}
+fix     	m6 all property/global resolutionJKR scalar 1e-4
+
+# pair style
+# pair_style  gran model hertz tangential history cohesion sjkr   # Hertzian with cohesion
+pair_style gran model jkr tangential jkr_tan
+pair_coeff  * *
+
+# timestep, gravity
+timestep    5e-6
+fix         gravi all gravity 9.81 vector 0.0 0.0 -1.0
+
+# walls
+
+fix		cv all mesh/surface file ../DEM/meshes/wall.stl type 1
+fix		inlet all mesh/surface file ../DEM/meshes/inlet.stl      type 1 
+fix		outlet all mesh/surface file ../DEM/meshes/outlet.stl type 1
+
+fix      wall all wall/gran model hertz tangential history mesh n_meshes 3 meshes cv outlet inlet
+
+# cfd coupling
+fix         cfd all couple/cfd couple_every 100 mpi
+fix         cfd2 all couple/cfd/force/implicit
+
+# apply nve integration to all particles that are inserted as single particles
+fix         integr all nve/sphere
+# add tracer atoms --chq 2019/4/4
+group  tracer id 1:1000
+
+# center of mass
+compute     centerOfMass all com
+
+# compute explicit dragforce
+compute     explDrag all reduce update_on_run_end yes sum f_dragforce[1] f_dragforce[2] f_dragforce[3]
+
+# sum of explicit and implicit drag force given from CFD to DEM
+variable    totalDragX equal f_cfd2[1]
+variable    totalDragY equal f_cfd2[2]
+variable    totalDragZ equal f_cfd2[3]
+
+# explicit drag force given from CFD to DEM
+variable    explicitDragX equal c_explDrag[1]
+variable    explicitDragY equal c_explDrag[2]
+variable    explicitDragZ equal c_explDrag[3]
+
+variable    time equal step*dt
+fix         extra all print 10 "${time} ${explicitDragX} ${explicitDragY} ${explicitDragZ} ${totalDragX} ${totalDragY} ${totalDragZ}" file ../DEM/post/forces.txt title "# time expDrag(X Y Z) totDrag(X Y Z)"
+
+# screen output
+compute         rke all erotate/sphere
+thermo_style    custom step atoms ke c_rke vol c_centerOfMass[3] c_explDrag[1] c_explDrag[2] c_explDrag[3] f_cfd2[1] f_cfd2[2] f_cfd2[3]
+thermo          10
+thermo_modify   lost ignore norm no
+compute_modify  thermo_temp dynamic yes
+
+
+# calculate number of contacts
+compute ppc all contact/atom
+compute sum_contact all reduce sum c_ppc
+variable n_contact equal c_ppc/2
+
+variable n_atoms equal atoms
+variable t_sim equal step * dt
+
+# compute fc all pair/gran/local contactArea        # UNCOMMENT THIS LINE TO GET CONTACT AREA
+
+
+#restart 100000  ../DEM/post/restart/restart.*.DEM
+
+dump            dmp all custom 20000 ../DEM/post/dump*.liggghts_run id type x y z vx vy vz fx fy fz f_dragforce[1] f_dragforce[2] f_dragforce[3] radius 
+dump            dmp2 tracer custom 1000 ../DEM/post/tracer/P2dump*.liggghts_run id type x y z vx vy vz fx fy fz f_dragforce[1] f_dragforce[2] f_dragforce[3] radius
+
+fix file all print {{DUMPSTEP_CONTACT}} "${t_sim} ${n_atoms} ${n_contact}" screen no file ../DEM/post/collisions.csv title "time,n_atoms,n_contact"
+
+run             0
+
+
+#restart 100000  ../DEM/post/restart/restart.*.DEM
+
+dump            dmp all custom 20000 ../DEM/post/dump*.liggghts_run id type x y z vx vy vz fx fy fz f_dragforce[1] f_dragforce[2] f_dragforce[3] radius 
+dump            dmp2 tracer custom 1000 ../DEM/post/tracer/P2dump*.liggghts_run id type x y z vx vy vz fx fy fz f_dragforce[1] f_dragforce[2] f_dragforce[3] radius
+# dump            dmpcontact all local 2645 ../DEM/post/bondnum/contactarea*.liggghts_run c_fc[1]       # UNCOMMENT THIS LINE TO DUMP CONTACT AREA
+
+fix file all print {{DUMPSTEP_CONTACT}} "${t_sim} ${n_atoms} ${n_contact}" screen no file ../DEM/post/collisions.csv title "time,n_atoms,n_contact"
+
+
+run             0

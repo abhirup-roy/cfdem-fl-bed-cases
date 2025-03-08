@@ -1,0 +1,76 @@
+# ESKAL 150 CASE
+# NO CG
+
+echo            both
+log             ../DEM/log.liggghts
+thermo_log      ../DEM/post/thermo.txt
+
+atom_style      granular
+atom_modify     map array
+communicate     single vel yes
+
+boundary        m m m
+newton          off
+
+units           si
+
+region          reg block -0.03 0.03 -0.03 0.03 -0.001 0.43 units box
+create_box      1 reg
+
+neighbor        0.00006 bin
+neigh_modify    delay 0
+
+
+# Material properties required for granular pair styles
+
+fix         m1 all property/global youngsModulus peratomtype {{YOUNG_MOD}}
+fix         m2 all property/global poissonsRatio peratomtype {{POISSON_RATIO}}
+fix         m3 all property/global coefficientRestitution peratomtypepair 1 0.8
+fix         m4 all property/global coefficientFriction peratomtypepair 1 0.86
+fix		    m5 all property/global workOfAdhesion peratomtypepair 1 {{WORKOFADHESION}} 
+fix     	m6 all property/global resolutionJKR scalar 1e-4
+
+
+# pair style
+# pair_style  gran model hertz tangential history cohesion sjkr   # Hertzian with cohesion
+pair_style  gran model jkr tangential jkr_tan 
+pair_coeff  * *
+
+# timestep, gravity
+timestep    1e-6
+fix         gravi all gravity 9.81 vector 0.0 0.0 -1.0
+
+# walls
+
+fix		cv all mesh/surface file ../DEM/meshes/wall.stl type 1
+fix		inlet all mesh/surface file ../DEM/meshes/inlet.stl      type 1 
+fix		outlet all mesh/surface file ../DEM/meshes/outlet.stl type 1
+
+fix      wall all wall/gran model hertz tangential history mesh n_meshes 3 meshes cv outlet inlet
+
+# particle distributions and insertion
+region  bc cylinder z 0.0 0.0 0.024 0. 0.38 units box
+
+
+fix     pts_ft4  all particletemplate/sphere 20437751 atom_type 1 density constant {{DENSITY}} radius constant {{RADIUS}}
+fix     pdd all particledistribution/discrete/numberbased 49979693 1 pts_ft4 1
+
+fix     ins all insert/pack seed 32452843 distributiontemplate pdd maxattempt 200 vel constant 0. 0. 0. insert_every once overlapcheck yes all_in yes mass_in_region {{BED_MASS}} region bc
+
+
+# apply nve integration to all particles that are inserted as single particles
+fix     integr all nve/sphere
+
+# screen output
+compute         rke all erotate/sphere
+thermo_style    custom step atoms ke c_rke vol
+thermo          1000
+thermo_modify   lost ignore norm no
+compute_modify  thermo_temp dynamic yes
+
+# insert the first particles so that dump is not empty
+run         1
+dump        dmp all custom 200 post/dump.liggghts_init id type x y z ix iy iz vx vy vz fx fy fz omegax omegay omegaz radius
+
+run         10000 upto
+write_restart   post/restart/liggghts.restart
