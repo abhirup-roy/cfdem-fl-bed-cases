@@ -27,7 +27,7 @@ class LIGGGHTSTemplatePopulator:
             raise ValueError('Template directory does not exist.')
         
         # Note default values are for from preliminary work on Eskal150 simulations  
-        self.R = kwargs.get('radius', 0.00183)
+        self.R = kwargs.get('radius', 0.000183)
         self.density = kwargs.get('density', 1109)
         self.bed_mass = kwargs.get('bed_mass', 0.0849)
         self.contact_dumpstep = kwargs.get('contact_dumpstep', 2645)
@@ -60,7 +60,7 @@ class LIGGGHTSTemplatePopulator:
             FLOAT poisson_ratio: The Poisson's ratio of the material
         """
         # Assuming monodisperse particles
-        E_eq = young_mod/(1-poisson_ratio**2)
+        E_eq = 0.5 * young_mod/(1-poisson_ratio**2)
         R_eq = radius / 2
         workofadhesion = 7.09 * (surface_energy**5 * R_eq**4 / E_eq**2)**(1/3)
         return workofadhesion
@@ -166,11 +166,11 @@ if __name__ == '__main__':
         write_dir = 'DEM',
         template_dir = 'templates',
         auto_cg = False,
-        radius = 0.00183,
+        radius = 0.000183,
         density = 1109,
         bed_mass = 0.0849,
         contact_dumpstep = 2645
     )
 
-    ltp.populate_jkr_template(autocomp_workofadhesion = True, surface_energy = 0.2e-3, young_mod = 5.4e6, poisson_ratio = 0.25, contact_dumpstep = 2645, dump_params = True)
+    # ltp.populate_jkr_template(autocomp_workofadhesion = True, surface_energy = 0.057, young_mod = 5.4e6, poisson_ratio = 0.25, contact_dumpstep = 2645, dump_params = True)
     # ltp.populate_sjkr_template(ced = 0, dump_params = True)
