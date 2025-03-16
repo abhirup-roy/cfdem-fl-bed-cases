@@ -13,7 +13,9 @@ current_dir=$PWD
 
 echo "Analysing & plotting pressures"
 cd postprocessing/plot_P
-python3 probe_analysis.py
+
+python3 post_scripts.py
+
 echo "Probe analysis complete"
 cd $current_dir
 

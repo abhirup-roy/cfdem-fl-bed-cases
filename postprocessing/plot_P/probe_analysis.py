@@ -138,7 +138,7 @@ class ProbeAnalysis():
         """
         # Initialise bounds and velocity
         bounds = []
-        vel =[]
+        vel = []
         
         self._read_probetxt()
         # Find the bounds for velocity
@@ -337,52 +337,3 @@ class ProbeAnalysis():
             plt.title("Void Fraction vs Velocity")
 
             plt.savefig(self.plots_dir + f"{png_name}.png") if png_name else plt.savefig(self.plots_dir + f"voidfrac_vel_plot_{slice_dirn}.png")
-            
-if __name__ == "__main__":
-
-    pressure_path = '../../CFD/postProcessing/cuttingPlane/'
-    velcfg_path = 'velcfg.txt'
-
-
-    probe_cfdem_slices = ProbeAnalysis(
-        pressure_path=pressure_path,
-        nprobes=5,
-        velcfg_path=velcfg_path,
-        dump2csv=False
-    )
-
-    """
-    Z-Normal Slices vs Time
-    """
-    # probe_cfdem_slices.plot_pressure(slice_dirn="z", x_var="time", png_name="pressure_time_plot_z", use_slices=True)
-    # probe_cfdem_slices.plot_voidfrac(slice_dirn="z", x_var="time", png_name="voidfrac_time_plot_z")
-
-    """
-    Y-Normal Slices vs Velocity
-    """
-    # probe_cfdem_slices.plot_pressure(slice_dirn="y", x_var="velocity", png_name="pressure_vel_plot_y", use_slices=True, y_agg='median')
-    # probe_cfdem_slices.plot_voidfrac(slice_dirn="y", x_var="velocity", png_name="voidfrac_vel_plot_y")
-
-    """
-    Y-Normal Slices vs Time
-    """
-    # probe_cfdem_slices.plot_pressure(slice_dirn="y", x_var="time", png_name="pressure_time_plot_y", use_slices=True, y_agg='median')
-    # probe_cfdem_slices.plot_voidfrac(slice_dirn="y", x_var="time", png_name="voidfrac_time_plot_y")
-
-    """
-    Z-normal Slices vs Velocity
-    """
-    # probe_cfdem_slices.plot_pressure(slice_dirn="z", x_var="velocity", png_name="pressure_vel_plot_z", use_slices=True)
-    # probe_cfdem_slices.plot_voidfrac(slice_dirn="z", x_var="velocity", png_name="voidfrac_vel_plot_z")
-
-    probe_cfdem_slices.plot_pressure(slice_dirn="z", 
-        x_var="velocity", 
-        png_name="pressure_vel_plot_z",
-        use_slices=True
-    )
-    
-    probe_cfdem_slices.plot_voidfrac(
-        slice_dirn="y", 
-        x_var="velocity",
-        png_name="voidfrac_time_plot_y"
-    )
