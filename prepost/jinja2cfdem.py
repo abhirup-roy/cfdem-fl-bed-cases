@@ -109,7 +109,7 @@ class LIGGGHTSTemplatePopulator:
 
         if dump_params:
             params = [self.R, self.density, self.bed_mass, ced]
-            self._dump_params(params=params, target_dir='postprocessing')
+            self._dump_params(params=params, target_dir='pyoutputs')
 
         
 
@@ -168,7 +168,7 @@ class LIGGGHTSTemplatePopulator:
             f.write(run_script_rendered)
         if dump_params:
             params = [self.R, young_mod, poisson_ratio, workofadhesion, self.density, self.bed_mass]
-            self._dump_params(params=params, target_dir='postprocessing')
+            self._dump_params(params=params, target_dir='pyoutputs')
 
 
 
