@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+Plotting utils for CFDEM fluidised bed simulations.
+"""
 
 import os
 import numpy as np
@@ -8,6 +13,14 @@ import pandas as pd
 
 import pyvista as pv
 from warnings import warn
+
+__author__ = "Abhirup Roy"
+__credits__ = ["Abhirup Roy"]
+__license__ = "MIT"
+__version__ = "0.1"
+__maintainer__ = "Abhirup Roy"
+__email__ = "axr154@bham.ac.uk"
+__status__ = "Development"
 
 class ProbeAnalysis():
 
@@ -138,7 +151,7 @@ class ProbeAnalysis():
         """
         # Initialise bounds and velocity
         bounds = []
-        vel = []
+        vel =[]
         
         self._read_probetxt()
         # Find the bounds for velocity
@@ -202,17 +215,17 @@ class ProbeAnalysis():
         if slice_dirn == "y":
             warn("Aggregating pressure data using y-slices can yield inaccurate results. Use with caution")
 
-        fig = plt.figure(figsize=[20,10])
         plot_suffix = "slices" if use_slices else "probes"
         pressure_df = self._probe2df(use_slices=use_slices, slice_dirn=slice_dirn,y_agg=y_agg)
 
         
         if x_var == "time":
-
-            pressure_df.plot(xlabel="Time (s)", ylabel="Pressure (Pa)", title=f"Pressure at {plot_suffix}")
+            pressure_df.plot(xlabel="Time (s)", figsize=(20,10), fontsize=20,
+                              ylabel="Pressure (Pa)", title=f"Pressure at {plot_suffix}")
             plt.savefig(self.plots_dir+png_name+".png") if png_name else plt.savefig(self.plots_dir+"probe_pressure.png")
         
         elif x_var == "velocity":
+            fig = plt.figure(figsize=[20,10])
             self._calc_vel(df=pressure_df)
 
             vel_plot_df = pressure_df.groupby(["direction", "V_z"]).mean()
@@ -235,10 +248,9 @@ class ProbeAnalysis():
 
                 plt.plot(vel_up.index, vel_up['pressure'], label=r"$V_z$ Increasing", color='C0', marker='o')
                 plt.plot(vel_down.index, vel_down['pressure'], label=r"$V_z$ Increasing", color='C0', marker='o', linestyle='dashed')
+            plt.xlabel("Velocity (m/s)")
+            plt.ylabel("Pressure (Pa)")
         
-
-        plt.xlabel("Velocity (m/s)")
-        plt.ylabel("Pressure (Pa)")
         plt.legend()
         plt.title(f"Pressure vs Velocity for {plot_suffix}")
 
@@ -308,6 +320,8 @@ class ProbeAnalysis():
         if x_var == "time":
             voidfrac_df.plot(xlabel="Time (s)", ylabel="Void Fraction (-)", title="Void Fraction vs Time")
             plt.savefig(self.plots_dir + f"{png_name}.png") if png_name else plt.savefig(self.plots_dir + f"voidfrac_time_plot_{slice_dirn}.png")
+            plt.xlabel("Velocity (m/s)")
+            
         elif x_var == "velocity":
             self._calc_vel(df=voidfrac_df)
 
@@ -330,10 +344,67 @@ class ProbeAnalysis():
             else:
                 plt.plot(vel_up.index, vel_up['void_frac'], label=r"$V_z$ Increasing", color='C0', marker='o')
                 plt.plot(vel_down.index, vel_down['void_frac'], label=r"$V_z$ Increasing", color='C0', marker='o', linestyle='dashed')
-
             plt.xlabel("Velocity (m/s)")
             plt.ylabel("Void Fraction (-)")
-            plt.legend()
-            plt.title("Void Fraction vs Velocity")
 
-            plt.savefig(self.plots_dir + f"{png_name}.png") if png_name else plt.savefig(self.plots_dir + f"voidfrac_vel_plot_{slice_dirn}.png")
+        plt.legend()
+        plt.title("Void Fraction vs Velocity")
+
+        plt.savefig(self.plots_dir + f"{png_name}.png") if png_name else plt.savefig(self.plots_dir + f"voidfrac_vel_plot_{slice_dirn}.png")
+            
+if __name__ == "__main__":
+
+    # Example usage - usable as a standalone script for default paths
+
+    pressure_path = '../../CFD/postProcessing/cuttingPlane/'
+    velcfg_path = 'velcfg.txt'
+
+
+    probe_cfdem_slices = ProbeAnalysis(
+        pressure_path=pressure_path,
+        nprobes=5,
+        velcfg_path=velcfg_path,
+        dump2csv=False
+    )
+
+    """
+    Z-Normal Slices vs Time
+    """
+    # probe_cfdem_slices.plot_pressure(slice_dirn="z", x_var="time", png_name="pressure_time_plot_z", use_slices=True)
+    # probe_cfdem_slices.plot_voidfrac(slice_dirn="z", x_var="time", png_name="voidfrac_time_plot_z")
+
+    """
+    Y-Normal Slices vs Velocity
+    """
+    # probe_cfdem_slices.plot_pressure(slice_dirn="y", x_var="velocity", png_name="pressure_vel_plot_y", use_slices=True, y_agg='median')
+    # probe_cfdem_slices.plot_voidfrac(slice_dirn="y", x_var="velocity", png_name="voidfrac_vel_plot_y")
+
+    """
+    Y-Normal Slices vs Time
+    """
+    # probe_cfdem_slices.plot_pressure(slice_dirn="y", x_var="time", png_name="pressure_time_plot_y", use_slices=True, y_agg='median')
+    # probe_cfdem_slices.plot_voidfrac(slice_dirn="y", x_var="time", png_name="voidfrac_time_plot_y")
+
+    """
+    Z-normal Slices vs Velocity
+    """
+    # probe_cfdem_slices.plot_pressure(slice_dirn="z", x_var="velocity", png_name="pressure_vel_plot_z", use_slices=True)
+    # probe_cfdem_slices.plot_voidfrac(slice_dirn="z", x_var="velocity", png_name="voidfrac_vel_plot_z")
+
+    probe_cfdem_slices.plot_pressure(slice_dirn="z", 
+        x_var="velocity", 
+        png_name="pressure_vel_plot_z",
+        use_slices=True
+    )
+    
+    probe_cfdem_slices.plot_voidfrac(
+        slice_dirn="y", 
+        x_var="velocity",
+        png_name="voidfrac_time_plot_y"
+    )
+
+    probe_cfdem_slices.plot_pressure(slice_dirn="z", 
+        x_var="time", 
+        png_name="pressure_time_plot_z",
+        use_slices=True
+    )

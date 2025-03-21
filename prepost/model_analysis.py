@@ -1,6 +1,21 @@
-from ..plot_P.probe_analysis import ProbeAnalysis
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+Calculates bond number for the simulation data using different models
+"""
+
+from plotting import ProbeAnalysis
 import pandas as pd
 import numpy as np
+
+__author__ = "Abhirup Roy"
+__credits__ = ["Abhirup Roy"]
+__license__ = "MIT"
+__version__ = "0.1"
+__maintainer__ = "Abhirup Roy"
+__email__ = "axr154@bham.ac.uk"
+__status__ = "Development"
 
 class ModelAnalysis(ProbeAnalysis):
     def __init__(self, **kwargs):
@@ -159,3 +174,6 @@ class ModelAnalysis(ProbeAnalysis):
             "Hysteresis": hyst
         }
 
+if __name__ == "__main__":
+    pass
+    # See post_scripts/model_analysis.py for usage

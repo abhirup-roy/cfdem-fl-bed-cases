@@ -1,8 +1,21 @@
 #usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+Populates LIGGGHTS templating scripts for the JKR and SJKR models
+"""
 
 import os
 import jinja2 as jj
 import numpy as np
+
+__author__ = "Abhirup Roy"
+__credits__ = ["Abhirup Roy"]
+__license__ = "MIT"
+__version__ = "0.1"
+__maintainer__ = "Abhirup Roy"
+__email__ = "axr154@bham.ac.uk"
+__status__ = "Development"
 
 class LIGGGHTSTemplatePopulator:
 

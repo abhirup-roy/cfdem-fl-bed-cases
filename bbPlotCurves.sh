@@ -12,9 +12,8 @@ export PIP_CACHE_DIR="/scratch/${USER}/pip"
 current_dir=$PWD
 
 echo "Analysing & plotting pressures"
-cd postprocessing/plot_P
 
-python3 post_scripts.py
+python3 plot_fluidn_curves.py
 
 echo "Probe analysis complete"
 cd $current_dir

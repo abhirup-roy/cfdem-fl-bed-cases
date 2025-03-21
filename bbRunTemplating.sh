@@ -9,6 +9,4 @@ source ${VENV_PATH}/bin/activate
 
 export PIP_CACHE_DIR="/scratch/${USER}/pip"
 
-current_dir=$PWD
-
-python3 Jinja2LIGGGHTS.py
+python3 run_templating.py 
