@@ -85,12 +85,19 @@ variable n_contact equal c_sumcontact/2
 variable n_atoms equal atoms
 variable t_sim equal step*dt
 
+# compute contact area
+compute ca all pair/gran/local contactArea
+compute sumca all reduce sum c_ca[1]
+variable a_contact equal c_sumca/2
+
+
 #restart 100000  ../DEM/post/restart/restart.*.DEM
 
-dump            dmp all custom 20000 ../DEM/post/dump*.liggghts_run id type x y z vx vy vz fx fy fz f_dragforce[1] f_dragforce[2] f_dragforce[3] radius  
+dump            dmp all custom 20000 ../DEM/post/dump*.liggghts_run id type x y z vx vy vz fx fy fz f_dragforce[1] f_dragforce[2] f_dragforce[3] radius 
 dump            dmp2 tracer custom 1000 ../DEM/post/tracer/P2dump*.liggghts_run id type x y z vx vy vz fx fy fz f_dragforce[1] f_dragforce[2] f_dragforce[3] radius
-# dump            dmpcontact all local 2645 ../DEM/post/bondnum/contactarea*.liggghts_run c_fc[1]       # UNCOMMENT THIS LINE TO DUMP CONTACT AREA
 
-fix file all print {{DUMPSTEP_CONTACT}} "${t_sim} ${n_atoms} ${n_contact}" screen no file ../DEM/post/collisions.csv title "time n_atoms n_contact"
+fix file all print {{DUMPSTEP_CONTACT}} "${t_sim} ${n_atoms} ${n_contact} ${a_contact}" screen no file ../DEM/post/collisions.csv title "time n_atoms n_contact a_contact"
+
+run             0
 
 run             0
