@@ -11,3 +11,12 @@ Volume 82,
 Pages 48-63,
 ISSN 1674-2001,
 https://doi.org/10.1016/j.partic.2022.12.018.
+
+## Pre-Post Processing 
+The prepost directory has a self-contained library  for pre-post processing. Documentation can be found [here](prepost/README.md)
+
+Included in this repository are 3 Python example files. These can act as examples on how to import and use the library
+
+* `run_templating.py` - This contains the format for intialising the LIGGGHTS scripts for the DEM case
+* `plot_fluidn_curbes.py` - This shows how to plot fluidisation curves for the simulation
+* `find_bondno.py` - This shows how to calculate the simulation and theoretical Bond number
