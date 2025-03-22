@@ -24,7 +24,7 @@ __status__ = "Development"
 
 class ProbeAnalysis():
 
-    def __init__(self, pressure_path, nprobes, velcfg_path, dump2csv=True, plots_dir='../../plots/'):
+    def __init__(self, pressure_path:str, nprobes:int, velcfg_path:str, dump2csv:bool=True, plots_dir:str='plots/'):
         """
         STRING  pressure_path: Path to the pressure data. If using slices, point to cuttingPlane directory. 
         INT     nprobes: Number of probes
@@ -49,7 +49,7 @@ class ProbeAnalysis():
 
         rcParams.update({'font.size': 20})
     
-    def _probe2df(self, use_slices, slice_dirn, y_agg):
+    def _probe2df(self, use_slices:bool, slice_dirn:str, y_agg:str)->pd.DataFrame:
         """
         Convert the probe data to a pandas dataframe, with data indexed by time. Dump if specified
         """
@@ -145,7 +145,7 @@ class ProbeAnalysis():
             print("Selected times: ", self.t)
             print("Corresponding vel: ", self.v_z)
 
-    def _calc_vel(self, df):
+    def _calc_vel(self, df:pd.DataFrame)->None:
         """
         Helper function to map the velocity to pressure. Reads the velocity config file and maps the velocity to the time-series data.
         """
@@ -183,7 +183,7 @@ class ProbeAnalysis():
         df["V_z"] = vz_arr
 
 
-        def _map_direction(x):
+        def _map_direction(x)->None:
             """
             Simple helper function to map the direction of the velocity. i.e whether it is increasing, decreasing or at max
             """
@@ -196,7 +196,7 @@ class ProbeAnalysis():
         # Add direction to the dataframe
         df["direction"] = df.index.to_series().apply(_map_direction)
 
-    def find_cdfmedian(self, arr):
+    def find_cdfmedian(self, arr:np.array)->float:
                     x, counts = np.unique(arr, return_counts=True)
                     cusum = np.cumsum(counts)
                     cdf = cusum/cusum[-1]
@@ -204,7 +204,7 @@ class ProbeAnalysis():
                     median_idx = cdf.tolist().index(np.percentile(cdf,50,method='nearest'))
                     return x[median_idx].item()
  
-    def plot_pressure(self, x_var, png_name=None, use_slices=True, slice_dirn=None, y_agg=None):
+    def plot_pressure(self, x_var:str, png_name:str=None, use_slices:bool=True, slice_dirn:str=None, y_agg=None):
         """
         Plot the pressure data from simulation.
         STRING x_var: Variable to plot against. "time" for time, "velocity" for velocity.
@@ -257,7 +257,7 @@ class ProbeAnalysis():
         plt.savefig(self.plots_dir + f"{png_name}.png") if png_name else plt.savefig(self.plots_dir + f"pressure_vel_plot_{plot_suffix}.png")
             
 
-    def _read_voidfrac(self, post_dir, slice_dirn):
+    def _read_voidfrac(self, post_dir:str, slice_dirn:str)->pd.DataFrame:
         """
         Helper function to read the void fraction data using `pyvista`
         """
@@ -305,7 +305,7 @@ class ProbeAnalysis():
             
         return voidfrac_df
     
-    def plot_voidfrac(self, slice_dirn, x_var, post_dir="../../CFD/postProcessing/cuttingPlane/", png_name=None):
+    def plot_voidfrac(self, slice_dirn:str, x_var:str, post_dir:str="CFD/postProcessing/cuttingPlane/", png_name:str=None):
         """
         Plot the void fraction data
         STRING slice_dirn: Method to plot the void fraction data. "slices" for z-normal slices, "cdf_median" for median of CDF of y-normal slice
@@ -356,7 +356,7 @@ if __name__ == "__main__":
 
     # Example usage - usable as a standalone script for default paths
 
-    pressure_path = '../../CFD/postProcessing/cuttingPlane/'
+    pressure_path = 'CFD/postProcessing/cuttingPlane/'
     velcfg_path = 'velcfg.txt'
 
 

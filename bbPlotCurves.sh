@@ -9,13 +9,10 @@ source ${VENV_PATH}/bin/activate
 
 export PIP_CACHE_DIR="/scratch/${USER}/pip"
 
-current_dir=$PWD
-
 echo "Analysing & plotting pressures"
 
 python3 plot_fluidn_curves.py
 
 echo "Probe analysis complete"
-cd $current_dir
 
 deactivate
