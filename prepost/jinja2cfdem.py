@@ -179,15 +179,27 @@ class LIGGGHTSTemplatePopulator:
         if dump_params:
             dump_filename:str = kwargs.get('dump_filename', 'params')
             dump_filetype:str = kwargs.get('dump_filetype', 'json')
-            if dump_filetype not in ['txt', 'json']:
-                raise ValueError('Invalid file format. Must be "txt" or "json".')
-            params = {
-                "radius": self.R,
-                "density": self.density,
-                "bed_mass": self.bed_mass,
-                "ced": ced,
-                "timestep": self.timestep_run
-            }
+            if dump_filetype == 'txt':
+                params = [
+                    f'radius={self.R}',
+                    f'ced={ced}',
+                    f'density={self.density}',
+                    f'bed_mass={self.bed_mass}',
+                    f'timestep={self.timestep_run}'
+                    f'model=sJKR'
+                ]
+                with open(f'{self.write_dir}/{dump_filename}.txt', 'w') as f:
+                    f.writelines(params)
+            elif dump_filetype == 'json':
+                params = {
+                    "radius": self.R,
+                    "ced": ced,
+                    "density": self.density,
+                    "bed_mass": self.bed_mass,
+                    "timestep": self.timestep_run,
+                    "model": "sJKR"
+                }
+
             self._dump_params(params=params, target_dir='pyoutputs', save_as=dump_filetype, filename=dump_filename)
 
         
@@ -257,17 +269,30 @@ class LIGGGHTSTemplatePopulator:
         if dump_params:
             dump_filename:str = kwargs.get('dump_filename', 'params')
             dump_filetype:str = kwargs.get('dump_filetype', 'json')
-            if dump_filetype not in ['txt', 'json']:
-                raise ValueError('Invalid file format. Must be "txt" or "json".')
-            params = {
-                "radius": self.R,
-                "young_mod": young_mod,
-                "poisson_ratio": poisson_ratio,
-                "workofadhesion": workofadhesion,
-                "density": self.density,
-                "bed_mass": self.bed_mass,
-                "timestep": self.timestep_run
-            }
+            if dump_filetype == 'txt':
+                params = [
+                    f'radius={self.R}',
+                    f'young_mod={young_mod}',
+                    f'poisson_ratio={poisson_ratio}',
+                    f'workofadhesion={workofadhesion}',
+                    f'density={self.density}',
+                    f'bed_mass={self.bed_mass}',
+                    f'timestep={self.timestep_run}'
+                    f'model=JKR'
+                ]
+                with open(f'{self.write_dir}/{dump_filename}.txt', 'w') as f:
+                    f.writelines(params)
+            elif dump_filetype == 'json':
+                params = {
+                    "radius": self.R,
+                    "young_mod": young_mod,
+                    "poisson_ratio": poisson_ratio,
+                    "workofadhesion": workofadhesion,
+                    "density": self.density,
+                    "bed_mass": self.bed_mass,
+                    "timestep": self.timestep_run,
+                    "model": "JKR"
+                }
 
             self._dump_params(params=params, target_dir='pyoutputs', save_as=dump_filetype, filename=dump_filename)
 
