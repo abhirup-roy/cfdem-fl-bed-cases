@@ -8,6 +8,7 @@ Populates LIGGGHTS templating scripts for the JKR and SJKR models
 import os
 import jinja2 as jj
 import numpy as np
+import json
 
 __author__ = "Abhirup Roy"
 __credits__ = ["Abhirup Roy"]
@@ -55,14 +56,17 @@ class LIGGGHTSTemplatePopulator:
             density *= 1/cg_factor
             bed_mass *= cg_factor**3
     
-    def _dump_params(self, params:list, target_dir:str):
+    def _dump_params(self, params:dict, target_dir:str):
         """
-        Helper function to dump the parameters to a text file:
-            LIST params: The parameters to be dumped
+        Helper function to dump the parameters to a JSON file:
+            DICT params: The parameters to be dumped
             STRING target_dir: The directory where the parameters will be dumped
         """
-        param_arr = np.array(params)
-        np.savetxt(f'{target_dir}/params.txt', param_arr)
+        
+        # np.savetxt(f'{target_dir}/params.txt', param_arr)
+        with open(f'{target_dir}/params.json', 'w') as f:
+            json.dump(params, f)
+    
 
     def _compute_workofadhesion(self, surface_energy:float, radius:float, young_mod:float, poisson_ratio:float):
         """
@@ -108,7 +112,12 @@ class LIGGGHTSTemplatePopulator:
             f.write(run_script_rendered)
 
         if dump_params:
-            params = [self.R, self.density, self.bed_mass, ced]
+            params = {
+                "radius": self.R,
+                "density": self.density,
+                "bed_mass": self.bed_mass,
+                "ced": ced
+            }
             self._dump_params(params=params, target_dir='pyoutputs')
 
         
@@ -167,7 +176,15 @@ class LIGGGHTSTemplatePopulator:
         with open(f'{self.write_dir}/in.liggghts_run', 'w') as f:
             f.write(run_script_rendered)
         if dump_params:
-            params = [self.R, young_mod, poisson_ratio, workofadhesion, self.density, self.bed_mass]
+            params = {
+                "radius": self.R,
+                "young_mod": young_mod,
+                "poisson_ratio": poisson_ratio,
+                "workofadhesion": workofadhesion,
+                "density": self.density,
+                "bed_mass": self.bed_mass
+            }
+
             self._dump_params(params=params, target_dir='pyoutputs')
 
 
