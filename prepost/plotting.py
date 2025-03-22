@@ -225,7 +225,7 @@ class ProbeAnalysis():
             plt.savefig(self.plots_dir+png_name+".png") if png_name else plt.savefig(self.plots_dir+"probe_pressure.png")
         
         elif x_var == "velocity":
-            fig = plt.figure(figsize=[20,10])
+            plt.figure(figsize=[20,10])
             self._calc_vel(df=pressure_df)
 
             vel_plot_df = pressure_df.groupby(["direction", "V_z"]).mean()
@@ -314,7 +314,7 @@ class ProbeAnalysis():
         STRING png_name (optional): Name of the png file to save the plot. If not specified, the filename is selected automatically
 
         """
-        fig = plt.figure(figsize=[20,10])
+        plt.figure(figsize=[20,10])
         voidfrac_df = self._read_voidfrac(slice_dirn=slice_dirn, post_dir=post_dir)
 
         if x_var == "time":
@@ -351,7 +351,47 @@ class ProbeAnalysis():
         plt.title("Void Fraction vs Velocity")
 
         plt.savefig(self.plots_dir + f"{png_name}.png") if png_name else plt.savefig(self.plots_dir + f"voidfrac_vel_plot_{slice_dirn}.png")
+
+    def _read_collisions(self, csv_path:str, calltype:str)->pd.DataFrame:
+        """
+        Read the collision data from the DEM simulations
+        ARGUMENTS:
+            STRING csv_path: Path to the csv file containing the collision data
+        """
+        df = pd.read_csv(csv_path, sep='\s+')
+        
+
+        if calltype == "contactarea":
+            df['a_contact_peratom'] = df.a_contact / df.n_atoms
+            return df.drop(columns=['n_atoms'])
+        elif calltype == "contactn":
+            df['contactn'] = df.n_contact / df.n_atoms
+            return df.drop(columns=['n_atoms', 'a_contact'])
             
+    
+    def plot_contactarea(self, csv_path:str='DEM/post/collisions.csv', png_name:str=None):
+        """
+        Plot the contact area data from the DEM simulations
+
+        ==========================================================
+        STRING csv_path: Path to the csv file containing the contact area data
+        STRING png_name (optional): Name of the png file to save the plot. If not specified, the filename is selected automatically
+        ==========================================================
+        """
+        fig = plt.figure(figsize=[20,10])
+        
+        contact_df = self._read_collisions(csv_path=csv_path, calltype="contactarea")
+        print(contact_df.head())
+        plt.plot(contact_df.time, contact_df.a_contact_peratom, label="Contact Area per Atom", color='C0')
+        plt.xlabel("Time (s)")
+        plt.ylabel(r"Contact Area per Atom ($m^2$)")
+        plt.title("Contact Area vs Time")
+        if png_name:
+            plt.savefig(self.plots_dir + f"{png_name}.png")
+        else:
+            plt.savefig(self.plots_dir + "contactarea_time_plot.png")
+
+    
 if __name__ == "__main__":
 
     # Example usage - usable as a standalone script for default paths
