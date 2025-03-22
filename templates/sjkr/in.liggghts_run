@@ -31,7 +31,7 @@ pair_style  gran model hertz tangential history cohesion sjkr   # Hertzian with 
 pair_coeff  * *
 
 # timestep, gravity
-timestep    0.000005
+timestep    {{TIMESTEP_RUN}}
 fix         gravi all gravity 9.81 vector 0.0 0.0 -1.0
 
 # walls

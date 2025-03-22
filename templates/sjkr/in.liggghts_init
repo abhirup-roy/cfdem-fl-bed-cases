@@ -34,7 +34,7 @@ pair_style  gran model hertz tangential history cohesion sjkr   # Hertzian with 
 pair_coeff  * *
 
 # timestep, gravity
-timestep    0.00001
+timestep    {{TIMESTEP_INIT}}
 fix         gravi all gravity 9.81 vector 0.0 0.0 -1.0
 
 # walls
@@ -70,5 +70,5 @@ compute_modify  thermo_temp dynamic yes
 run         1
 dump        dmp all custom 1000 post/dump.liggghts_init id type x y z ix iy iz vx vy vz fx fy fz omegax omegay omegaz radius
 
-run         10000 upto
+run         {{SETTLETIME}} upto
 write_restart   post/restart/liggghts.restart

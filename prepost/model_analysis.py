@@ -20,6 +20,11 @@ __status__ = "Development"
 class ModelAnalysis(ProbeAnalysis):
     def __init__(self, **kwargs):
         """
+        Class to calculate the bond number using different models
+
+        ========================
+        Parameters
+        ========================
         STRING  pressure_path: Path to the pressure data. If using slices, point to cuttingPlane directory. 
         INT     nprobes: Number of probes
         STRING  velcfg_path: Path to the vel_cfg file
@@ -61,7 +66,7 @@ class ModelAnalysis(ProbeAnalysis):
         
         return vel_up['Probe 0'], vel_down['Probe 0']
 
-    def _access_voidfrac(self):
+    def _access_voidfrac(self) -> pd.Series:
         """
         Access the void fraction data and divide into aerated and non-aerated regions
         """
@@ -82,9 +87,11 @@ class ModelAnalysis(ProbeAnalysis):
 
         return vel_up.squeeze(), vel_down.squeeze()
     
-    def _access_contactn(self, contact_csv_path='DEM/post/collisions.csv'):
+    def _access_contactn(self, contact_csv_path='DEM/post/collisions.csv') -> pd.Series:
         """
         Calculate the contact data and divide into aerated and non-aerated regions
+
+        STRING  contact_csv_path: Path to the contact data
         """
         contact_df = super()._read_collisions(contact_csv_path, calltype='contactn') 
         super()._calc_vel(df=contact_df)
@@ -130,7 +137,10 @@ class ModelAnalysis(ProbeAnalysis):
             self.rho_p = rho_p
             self.diameter = diameter
 
-    def overshoot_model(self):
+    def overshoot_model(self)->float:
+        """
+        Calculate the Bond number overshoot model (Hsu, Huang and Kuo, 2018)
+        """
 
         if not hasattr(self, 'rho_p'):
             raise AttributeError("Define the parameters first using `define_params`")
@@ -146,13 +156,19 @@ class ModelAnalysis(ProbeAnalysis):
 
         return (6 * p_over)/(avg_contactn**2 * (1-avg_voidfrac) * self.diameter * self.rho_p * 9.81) 
 
-    def dhr_model(self):
+    def dhr_model(self)->float:
+        """"
+        Calculate the Bond number usin DHR model (Soleimani et al., 2021)"
+        """
         voidfrac1 = self.voidfrac_up.loc[self.u_mf]
         voidfrac2 = self.voidfrac_down.loc[self.u_mf]
 
         return (voidfrac2/voidfrac1)**3 * (1-voidfrac1)/(1-voidfrac2) - 1
     
-    def hyst_model(self):
+    def hyst_model(self)->float:
+        """
+        Calculate the Bond number using hysteresis model (Affleck et al., 2023)
+        """
         p_1 = self.pressure_up.max()
         p_ss = self.pressure_up.iloc[-1]
         p_2 = self.pressure_down.loc[self.u_mf]
@@ -161,7 +177,10 @@ class ModelAnalysis(ProbeAnalysis):
 
         return (p_1-p_2)/(p_ss*delta_k)
 
-    def model_summary(self):
+    def model_summary(self)->dict:
+        """
+        Return a summary Bond number calculated using different models
+        """
         overshoot = self.overshoot_model()
         dhr = self.dhr_model()
         hyst = self.hyst_model()
