@@ -1,4 +1,4 @@
-#usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # author: Abhirup Roy
 # license: MIT
@@ -9,6 +9,8 @@ Plotting the fluidisation curves
 """
 
 from prepost.plotting import ProbeAnalysis
+import pandas as pd
+
 
 pressure_path = 'CFD/postProcessing/cuttingPlane/'
 velcfg_path = 'prepost/velcfg.txt'
@@ -38,3 +40,5 @@ probe_cfdem_slices.plot_pressure(slice_dirn="z",
     png_name="pressure_time_plot_z",
     use_slices=True
 )
+
+probe_cfdem_slices.plot_contactarea()

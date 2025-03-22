@@ -86,9 +86,7 @@ class ModelAnalysis(ProbeAnalysis):
         """
         Calculate the contact data and divide into aerated and non-aerated regions
         """
-        contact_df = pd.read_csv(contact_csv_path, sep="\s+", index_col="time")
-
-        contact_df['contactn'] = contact_df.n_contact / contact_df.n_atoms 
+        contact_df = super()._read_collisions(contact_csv_path, calltype='contactn') 
         super()._calc_vel(df=contact_df)
 
         contact_plot_df = contact_df.groupby(["direction", "V_z"]).mean()
