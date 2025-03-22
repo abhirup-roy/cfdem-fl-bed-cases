@@ -46,6 +46,10 @@ class LIGGGHTSTemplatePopulator:
         self.bed_mass = kwargs.get('bed_mass', 0.0849)
         self.contact_dumpstep = kwargs.get('contact_dumpstep', 2645)
 
+        # Default time steps
+        self.timestep_init = 1e-6
+        self.timestep_run = 5e-6
+
         if auto_cg:
             if 'cg_factor' not in kwargs:
                 raise ValueError('cg_factor must be provided for coarse-grained simulations. Otherwise cg must be set to False or coarsegrain factors yourself.')
@@ -67,6 +71,21 @@ class LIGGGHTSTemplatePopulator:
         with open(f'{target_dir}/params.json', 'w') as f:
             json.dump(params, f)
     
+    def set_timestep(self, timestep:float, kind:str):
+        """
+        Set the time step for the simulation:
+        FLOAT timestep: The time step for the simulation
+        STRING kind: The kind of time step to set ("init" or "run" or "all")
+        """
+        if kind == 'init':
+            self.timestep_init = timestep
+        elif kind == 'run':
+            self.timestep_run = timestep
+        elif kind == 'all':
+            self.timestep_init = timestep
+            self.timestep_run = timestep
+        else:
+            raise ValueError('Invalid time step kind. Must be "init", "run" or "all".')
 
     def _compute_workofadhesion(self, surface_energy:float, radius:float, young_mod:float, poisson_ratio:float):
         """
@@ -95,7 +114,9 @@ class LIGGGHTSTemplatePopulator:
             'CED': ced,
             'RADIUS': self.R,
             'DENSITY': self.density,
-            'BED_MASS': self.bed_mass
+            'BED_MASS': self.bed_mass,
+            'TIMESTEP_INIT': self.timestep_init,
+            'TIMESTEP_RUN': self.timestep_run
         }
         init_script_rendered = init_script_template.render(init_script_contxt)
 

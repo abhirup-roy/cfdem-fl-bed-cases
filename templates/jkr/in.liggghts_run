@@ -33,7 +33,7 @@ pair_style gran model jkr tangential jkr_tan
 pair_coeff  * *
 
 # timestep, gravity
-timestep    5e-6
+timestep    {{TIMESTEP_RUN}}
 fix         gravi all gravity 9.81 vector 0.0 0.0 -1.0
 
 # walls
