@@ -20,3 +20,9 @@ Included in this repository are 3 Python example files. These can act as example
 * `run_templating.py` - This contains the format for intialising the LIGGGHTS scripts for the DEM case
 * `plot_fluidn_curbes.py` - This shows how to plot fluidisation curves for the simulation
 * `find_bondno.py` - This shows how to calculate the simulation and theoretical Bond number
+
+## Acknowledgements
+This project was made with the support of:
+* Hanqiao Che
+* Kit Windows-Yule (University of Birmingham)
+* Amalia Thomas (Freeman Technology)
