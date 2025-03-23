@@ -1,4 +1,4 @@
-# CFDEM Fluidised Bed Cases
+# CFDEM Fluidised Bed Cases 🫧
 
 This repository allows users to test the validity of Bond Number of simulations with previous models - using the humble fluidised bed. This is part of [publication pending]. 
 Contained in this repo the CFDEM code (written by of Hanqiao Che and adapted by myself) for carrying out a fluidised bed CFDEM simulation, as well as a Python pre/post-processing package for the simulation.
