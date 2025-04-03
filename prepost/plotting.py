@@ -169,7 +169,7 @@ class ProbeAnalysis():
         # Lower and upper time bounds for each velocity 
         lb = [b[0] for b in bounds]
         ub = [b[1] for b in bounds]
-        vz_arr = np.zeros_like(df.index.to_numpy())
+        vz_arr = np.zeros_like(df.index.to_numpy(), dtype=float)  # Initialize as float array
 
         # Map the velocity to the pressure data
         for i in range(len(bounds)):
@@ -179,9 +179,7 @@ class ProbeAnalysis():
             if i < len(bounds) - 1:
                 gap_mask = (df.index.to_numpy() >= ub[i]) & (df.index.to_numpy() <= lb[i + 1])
                 vz_arr[gap_mask] = np.nan
-            
         df["V_z"] = vz_arr
-
 
         def _map_direction(x)->None:
             """
@@ -366,7 +364,7 @@ class ProbeAnalysis():
             return df.drop(columns=['n_atoms'])
         elif calltype == "contactn":
             df['contactn'] = df.n_contact / df.n_atoms
-            return df.drop(columns=['n_atoms', 'a_contact'])
+            return df
             
     
     def plot_contactarea(self, csv_path:str='DEM/post/collisions.csv', png_name:str=None):
@@ -381,7 +379,6 @@ class ProbeAnalysis():
         fig = plt.figure(figsize=[20,10])
         
         contact_df = self._read_collisions(csv_path=csv_path, calltype="contactarea")
-        print(contact_df.head())
         plt.plot(contact_df.time, contact_df.a_contact_peratom, label="Contact Area per Atom", color='C0')
         plt.xlabel("Time (s)")
         plt.ylabel(r"Contact Area per Atom ($m^2$)")

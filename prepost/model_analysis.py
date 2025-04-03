@@ -5,7 +5,7 @@
 Calculates bond number for the simulation data using different models
 """
 
-from plotting import ProbeAnalysis
+from .plotting import ProbeAnalysis
 import pandas as pd
 import numpy as np
 
@@ -34,11 +34,11 @@ class ModelAnalysis(ProbeAnalysis):
         
         pressure_path:str = kwargs.get("pressure_path", 'CFD/postProcessing/cuttingPlane/')
         nprobes:int = kwargs.get("nprobes", 5)
-        velcfg_path:str = kwargs.get("velcfg_path", 'postprocessing/plot_P/velcfg.txt')
+        velcfg_path:str = kwargs.get("velcfg_path", 'prepost/velcfg.txt')
         dump2csv:bool = kwargs.get("dump2csv", False)
         plots_dir:str = kwargs.get("plots_dir", 'plots/')
 
-        super().__init__(pressure_path, nprobes, velcfg_path, dump2csv=dump2csv, plots_dir=plots_dir)
+        super().__init__(pressure_path=pressure_path, nprobes=nprobes, velcfg_path=velcfg_path, dump2csv=dump2csv, plots_dir=plots_dir)
         
         self._store_data()
 
@@ -173,8 +173,7 @@ class ModelAnalysis(ProbeAnalysis):
         p_ss = self.pressure_up.iloc[-1]
         p_2 = self.pressure_down.loc[self.u_mf]
 
-        delta_k = self.contactn_up.loc[self.u_mf] - self.contactn_down.loc[self.u_mf]
-
+        delta_k = np.abs(self.contactn_up.loc[self.u_mf] - self.contactn_down.loc[self.u_mf])
         return (p_1-p_2)/(p_ss*delta_k)
 
     def model_summary(self)->dict:
