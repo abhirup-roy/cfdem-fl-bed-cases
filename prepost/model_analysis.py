@@ -90,13 +90,19 @@ class ModelAnalysis(ProbeAnalysis):
     def _access_contactn(self, contact_csv_path='DEM/post/collisions.csv') -> pd.Series:
         """
         Calculate the contact data and divide into aerated and non-aerated regions
-
-        STRING  contact_csv_path: Path to the contact data
         """
-        contact_df = super()._read_collisions(contact_csv_path, calltype='contactn') 
+        # Read contact data
+        contact_df = super()._read_collisions(contact_csv_path, calltype='contactn')
+
+        contact_df.set_index('time', inplace=True)
+
+        # Map velocity to contact data
         super()._calc_vel(df=contact_df)
 
+        # Group by direction and velocity
         contact_plot_df = contact_df.groupby(["direction", "V_z"]).mean()
+
+        # Divide into aerated and non-aerated regions
         vel_up = contact_plot_df[
             contact_plot_df.index.get_level_values(level='direction').isin(["up", "max"])
         ].reset_index('direction', drop=True).sort_index()
@@ -116,7 +122,7 @@ class ModelAnalysis(ProbeAnalysis):
         self.voidfrac_up, self.voidfrac_down = self._access_voidfrac()
 
         self.u_mf = self.pressure_up.idxmax()
-
+        
     def define_params(self, diameter:float, rho_p:float, 
                       bed_mass:float, cg_factor:float=None):
         
@@ -174,6 +180,7 @@ class ModelAnalysis(ProbeAnalysis):
         p_2 = self.pressure_down.loc[self.u_mf]
 
         delta_k = np.abs(self.contactn_up.loc[self.u_mf] - self.contactn_down.loc[self.u_mf])
+
         return (p_1-p_2)/(p_ss*delta_k)
 
     def model_summary(self)->dict:
