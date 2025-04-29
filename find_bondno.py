@@ -4,16 +4,16 @@
 """
 Calculates bond number for the simulation data using different models
 """
-
+import json
 from prepost.model_analysis import ModelAnalysis
 
 pressure_path = 'CFD/postProcessing/cuttingPlane/'
 velcfg_path = 'prepost/velcfg.txt'
 
 model = ModelAnalysis(
-    pressure_path='CFD/postProcessing/cuttingPlane/',
+    pressure_path=pressure_path,
     nprobes=5,
-    velcfg_path='postprocessing/plot_P/velcfg.txt',
+    velcfg_path=velcfg_path,
     dump2csv=False,
     plots_dir='plots/'
 )
@@ -25,4 +25,11 @@ model.define_params(
     cg_factor=2.44
 )
 
-print(model.model_summary())
+summary = model.model_summary()
+print(summary)
+
+# Save the summary to a JSON file
+with open('pyoutputs/model_summary.json', 'w') as f:
+    json.dump(summary, f, indent=4)
+print(f"Model summary saved to pyoutputs/model_summary.json")
+
