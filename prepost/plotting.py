@@ -148,6 +148,7 @@ class ProbeAnalysis():
     def _calc_vel(self, df:pd.DataFrame)->None:
         """
         Helper function to map the velocity to pressure. Reads the velocity config file and maps the velocity to the time-series data.
+        Note that the index should be time in the dataframe.
         """
         # Initialise bounds and velocity
         bounds = []
@@ -359,7 +360,7 @@ class ProbeAnalysis():
         df = pd.read_csv(csv_path, sep='\s+')
 
         # Check if time is 0 at start of csv file
-        if not df.at[0, "time"] > 0:
+        if df.at[0, "time"] > 0:
             df["time"] = df["time"] - df["time"].iloc[0]
 
         
@@ -367,6 +368,7 @@ class ProbeAnalysis():
         if calltype == "contactarea":
             df['a_contact_peratom'] = df.a_contact / df.n_atoms
             return df.drop(columns=['n_atoms'])
+        
         elif calltype == "contactn":
             df['contactn'] = df.n_contact / df.n_atoms
             return df
