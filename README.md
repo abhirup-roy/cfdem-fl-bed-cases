@@ -23,6 +23,6 @@ Included in this repository are 3 Python example files. These can act as example
 
 ## Acknowledgements
 This project was made with the support of:
-* Hanqiao Che
+* Hanqiao Che (Guangxi University)
 * Kit Windows-Yule (University of Birmingham)
 * Amalia Thomas (Freeman Technology)
