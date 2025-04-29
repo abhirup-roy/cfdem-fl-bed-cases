@@ -54,8 +54,24 @@ else
     mpiexec -n $nrProcs $CFDEM_LIGGGHTS_EXEC -in $solverName 
     #$CFDEM_LIGGGHTS_EXEC -in $solverName 
 fi
-
 #--------------------------------------------------------------------------------#
+
+# - run tapping
+if [ -f "$casePath/DEM/post/restart/liggghts_tapped.restart" ];  then
+    echo "LIGGGHTS tap was run before - using existing restart file"
+else
+    logpath="$casePath"
+    headerText="run_liggghts_tap_DEM"
+    logfileName="log_$headerText"
+    solverName="in.liggghts_tap"
+    nrProcs="16"
+    machineFileName="none"   # yourMachinefileName | none
+
+    cd  $casePath/DEM
+    mpiexec -n $nrProcs $CFDEM_LIGGGHTS_EXEC -in $solverName
+fi
+# --------------------------------------------------------------------------------#
+
 #- define variables
 logpath=$casePath
 headerText="run_parallel_cfdemSolverPisoSTM_packedBedTemp_CFDDEM"

@@ -6,6 +6,8 @@ Populates LIGGGHTS templating scripts for the JKR and SJKR models
 """
 
 import os
+import math
+
 import jinja2 as jj
 import numpy as np
 import json
@@ -38,7 +40,9 @@ class LIGGGHTSTemplatePopulator:
         INT density:            The density of the material (in kg/m^3)
         FLOAT bed_mass:         The mass of the bed (in kg)
         INT contact_dumpstep:   The dumpstep for contact data
-        FLOAT cg_factor:        A custom coarse-graining factor (if auto_cg is set to True). Not needed if auto_cg is set to False or if you coarse-grain parameters yourself
+        FLOAT cg_factor:        A custom coarse-graining factor (if auto_cg is set to True). Not needed if auto_cg is set to False
+                                or if you coarse-grain parameters yourself
+        FLOAT mesh_radius:      The radius of the mesh (in meters)
         """
 
         self.write_dir = write_dir
@@ -52,6 +56,7 @@ class LIGGGHTSTemplatePopulator:
         self.density = kwargs.get('density', 1109)
         self.bed_mass = kwargs.get('bed_mass', 0.0849)
         self.contact_dumpstep = kwargs.get('contact_dumpstep', 2645)
+        self.mesh_radius = kwargs.get('mesh_radius', 0.025)
 
         # Default time steps
         self.timestep_init:float = 1e-6
@@ -134,7 +139,21 @@ class LIGGGHTSTemplatePopulator:
         workofadhesion = 7.09 * (surface_energy**5 * R_eq**4 / E_eq**2)**(1/3)
         return workofadhesion
 
-    def populate_sjkr_template(self, ced:int, dump_params:bool, **kwargs):
+    def _sig_figs(self, x: float, precision: int):
+        """
+        Rounds a number to number of significant figures
+        Parameters:
+        - x - the number to be rounded
+        - precision (integer) - the number of significant figures
+        Returns:
+        - float
+        """
+        x = float(x)
+        precision = int(precision)
+
+        return round(x, -int(math.floor(math.log10(abs(x)))) + (precision - 1))
+
+    def populate_sjkr_template(self, ced:int, dump_params:bool, compress=False, **kwargs):
         """
         Populate the template for the SJKR model:
         ========================================================================
@@ -142,10 +161,15 @@ class LIGGGHTSTemplatePopulator:
         ========================================================================
         INT ced: The cohesion energy density value for the simulation
         BOOL dump_params: Whether or not to dump the parameters to a text file
+        BOOL compress: Whether or not to run a compression simulation
 
         ========================================================================
         KWARGS
         ========================================================================
+        FLOAT compress_timestep: The time step for the compression simulation
+        FLOAT t_compression: The time for the compression simulation
+        FLOAT p_compress: The pressure for the compression simulation
+        FLOAT t_unload: The time for the unloading simulation
         STRING dump_filename: The name of the file to dump the parameters to
         STRING dump_filetype: The file format to dump the parameters to (txt or json)
         """
@@ -170,11 +194,38 @@ class LIGGGHTSTemplatePopulator:
             'TIMESTEP_RUN': self.timestep_run
         }
         run_script_rendered = run_script_template.render(run_script_contxt)
-
         with open(f'{self.write_dir}/in.liggghts_init', 'w') as f:
             f.write(init_script_rendered)
         with open(f'{self.write_dir}/in.liggghts_run', 'w') as f:
             f.write(run_script_rendered)
+
+        if compress:
+            t_compression = kwargs.get('t_compression', 1)  #Time for compression(s)
+            p_compress = kwargs.get('p_compress', 15_000)  # Pressure for compression (Pa)
+            compress_timestep = kwargs.get('compress_timestep', self.timestep_run)
+            t_unload = kwargs.get('t_unload', 0.1)
+
+            n_compression_timesteps = self._sig_figs(t_compression/compress_timestep, 2)
+            n_unload_timesteps = self._sig_figs(t_unload/compress_timestep, 2)
+            f_compress = p_compress * (np.pi * self.R**2)
+
+            compress_script_template = jkr_jinja_env.get_template('in.liggghts_tap')
+            compress_script_contxt = {
+                'CED': ced,
+                'TIMESTEP': compress_timestep,
+                'F_COMPR': f_compress,
+                'COMPRESSION_TIMESTEPS': n_compression_timesteps,
+                'UNLOAD_TIMESTEPS': n_unload_timesteps
+            }
+            compress_script_rendered = compress_script_template.render(compress_script_contxt)
+            with open(f'{self.write_dir}/in.liggghts_tap', 'w') as f:
+                f.write(compress_script_rendered)
+            with open(f'{self.write_dir}/in.liggghts_run', 'r') as file:
+                run_lines = file.readlines()
+            run_lines[15] = 'read_restart    ../DEM/post/restart/liggghts_tapped.restart\n'
+            with open(f'{self.write_dir}/in.liggghts_run', 'w') as file:
+                file.writelines(run_lines)
+            
 
         if dump_params:
             dump_filename:str = kwargs.get('dump_filename', 'params')
@@ -282,6 +333,7 @@ class LIGGGHTSTemplatePopulator:
                 ]
                 with open(f'{self.write_dir}/{dump_filename}.txt', 'w') as f:
                     f.writelines(params)
+
             elif dump_filetype == 'json':
                 params = {
                     "radius": self.R,
@@ -295,7 +347,6 @@ class LIGGGHTSTemplatePopulator:
                 }
 
             self._dump_params(params=params, target_dir='pyoutputs', save_as=dump_filetype, filename=dump_filename)
-
 
 
 
