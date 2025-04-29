@@ -48,7 +48,7 @@ class ModelAnalysis(ProbeAnalysis):
         Access the pressure data and divide into aerated and non-aerated regions 
         """
 
-        pressure_df:pd.DataFrame = super()._probe2df(
+        pressure_df: pd.DataFrame = super()._probe2df(
             use_slices=True, 
             slice_dirn="z", y_agg=None
         )
@@ -94,6 +94,8 @@ class ModelAnalysis(ProbeAnalysis):
         STRING  contact_csv_path: Path to the contact data
         """
         contact_df = super()._read_collisions(contact_csv_path, calltype='contactn') 
+        contact_df.set_index('time', inplace=True)
+        
         super()._calc_vel(df=contact_df)
 
         contact_plot_df = contact_df.groupby(["direction", "V_z"]).mean()
