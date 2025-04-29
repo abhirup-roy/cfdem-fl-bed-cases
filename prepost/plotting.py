@@ -357,6 +357,11 @@ class ProbeAnalysis():
             STRING csv_path: Path to the csv file containing the collision data
         """
         df = pd.read_csv(csv_path, sep='\s+')
+
+        # Check if time is 0 at start of csv file
+        if not df.at[0, "time"] > 0:
+            df["time"] = df["time"] - df["time"].iloc[0]
+
         
 
         if calltype == "contactarea":
