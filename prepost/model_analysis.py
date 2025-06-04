@@ -95,6 +95,7 @@ class ModelAnalysis(ProbeAnalysis):
         """
         contact_df = super()._read_collisions(contact_csv_path, calltype='contactn') 
         contact_df.set_index('time', inplace=True)
+        contact_df.index -= contact_df.index.min()
         
         super()._calc_vel(df=contact_df)
 
