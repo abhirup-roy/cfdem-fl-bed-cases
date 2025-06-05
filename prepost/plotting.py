@@ -148,7 +148,6 @@ class ProbeAnalysis():
     def _calc_vel(self, df:pd.DataFrame)->None:
         """
         Helper function to map the velocity to pressure. Reads the velocity config file and maps the velocity to the time-series data.
-        Note that the index should be time in the dataframe.
         """
         # Initialise bounds and velocity
         bounds = []
@@ -203,7 +202,8 @@ class ProbeAnalysis():
                     median_idx = cdf.tolist().index(np.percentile(cdf,50,method='nearest'))
                     return x[median_idx].item()
  
-    def plot_pressure(self, x_var:str, png_name:str=None, use_slices:bool=True, slice_dirn:str=None, y_agg=None):
+    def plot_pressure(self, x_var:str, png_name:str=None, use_slices:bool=True, 
+                      slice_dirn:str=None, y_agg=None, dump_probe0: bool=True):
         """
         Plot the pressure data from simulation.
         STRING x_var: Variable to plot against. "time" for time, "velocity" for velocity.
@@ -216,7 +216,6 @@ class ProbeAnalysis():
 
         plot_suffix = "slices" if use_slices else "probes"
         pressure_df = self._probe2df(use_slices=use_slices, slice_dirn=slice_dirn,y_agg=y_agg)
-
         
         if x_var == "time":
             pressure_df.plot(xlabel="Time (s)", figsize=(20,10), fontsize=20,
@@ -233,7 +232,6 @@ class ProbeAnalysis():
             vel_up = vel_plot_df[
                 vel_plot_df.index.get_level_values(level='direction').isin(["up", "max"])
             ].reset_index('direction', drop=True).sort_index()
-            print("Vel up", vel_up)
             
             vel_down = vel_plot_df[
                 vel_plot_df.index.get_level_values(level='direction').isin(["down", "max"])
@@ -243,6 +241,17 @@ class ProbeAnalysis():
                 for i in range(self.nprobes):
                     plt.plot(vel_up.index, vel_up[pressure_df.columns[i]], label=f"Probe {i} (Up)", color=f'C{i}', marker='o')
                     plt.plot(vel_down.index, vel_down[pressure_df.columns[i]], label=f"Probe {i} (Down)", color=f'C{i}', marker='o', linestyle='dashed')
+                if dump_probe0:
+                    probe0_up_v = vel_up.index.to_numpy()
+                    probe0_up_p = vel_up[pressure_df.columns[0]].to_numpy()
+                    probe0_down_v = vel_down.index.to_numpy()
+                    probe0_down_p = vel_down[pressure_df.columns[0]].to_numpy()
+                    probe0_2d = np.vstack((probe0_up_v, probe0_up_p, probe0_down_v, probe0_down_p)).T
+                    np.save(
+                        os.path.join(self.plots_dir, "probe0_plot_voidfrac.npy"),
+                        probe0_2d
+                    )
+
             else:
 
                 plt.plot(vel_up.index, vel_up['pressure'], label=r"$V_z$ Increasing", color='C0', marker='o')
@@ -304,7 +313,8 @@ class ProbeAnalysis():
             
         return voidfrac_df
     
-    def plot_voidfrac(self, slice_dirn:str, x_var:str, post_dir:str="CFD/postProcessing/cuttingPlane/", png_name:str=None):
+    def plot_voidfrac(self, slice_dirn:str, x_var:str, post_dir:str="CFD/postProcessing/cuttingPlane/",
+                      png_name:str=None, dump_probe0: bool=True):
         """
         Plot the void fraction data
         STRING slice_dirn: Method to plot the void fraction data. "slices" for z-normal slices, "cdf_median" for median of CDF of y-normal slice
@@ -343,6 +353,17 @@ class ProbeAnalysis():
             else:
                 plt.plot(vel_up.index, vel_up['void_frac'], label=r"$V_z$ Increasing", color='C0', marker='o')
                 plt.plot(vel_down.index, vel_down['void_frac'], label=r"$V_z$ Increasing", color='C0', marker='o', linestyle='dashed')
+                if dump_probe0:
+                    probe0_up_v = vel_up.index.to_numpy()
+                    probe0_up_p = vel_up['void_frac'].to_numpy()
+                    probe0_down_v = vel_down.index.to_numpy()
+                    probe0_down_p = vel_down['void_frac'].to_numpy()
+                    probe0_2d = np.vstack((probe0_up_v, probe0_up_p, probe0_down_v, probe0_down_p)).T
+                    np.save(
+                        os.path.join(self.plots_dir, "probe0_plot_P.npy"),
+                        probe0_2d
+                    )
+
             plt.xlabel("Velocity (m/s)")
             plt.ylabel("Void Fraction (-)")
 
@@ -358,17 +379,11 @@ class ProbeAnalysis():
             STRING csv_path: Path to the csv file containing the collision data
         """
         df = pd.read_csv(csv_path, sep='\s+')
-
-        # Check if time is 0 at start of csv file
-        if df.at[0, "time"] > 0:
-            df["time"] = df["time"] - df["time"].iloc[0]
-
         
 
         if calltype == "contactarea":
             df['a_contact_peratom'] = df.a_contact / df.n_atoms
             return df.drop(columns=['n_atoms'])
-        
         elif calltype == "contactn":
             df['contactn'] = df.n_contact / df.n_atoms
             return df
