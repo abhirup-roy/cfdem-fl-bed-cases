@@ -11,9 +11,9 @@ pressure_path = 'CFD/postProcessing/cuttingPlane/'
 velcfg_path = 'prepost/velcfg.txt'
 
 model = ModelAnalysis(
-    pressure_path='CFD/postProcessing/cuttingPlane/',
+    pressure_path=pressure_path,
     nprobes=5,
-    velcfg_path='postprocessing/plot_P/velcfg.txt',
+    velcfg_path=velcfg_path,
     dump2csv=False,
     plots_dir='plots/'
 )
