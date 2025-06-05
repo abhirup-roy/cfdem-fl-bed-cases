@@ -23,22 +23,25 @@ probe_cfdem_slices = ProbeAnalysis(
     dump2csv=False
 )
 
-probe_cfdem_slices.plot_pressure(slice_dirn="z", 
+probe_cfdem_slices.plot_pressure(
+    slice_dirn="z", 
     x_var="velocity", 
     png_name="pressure_vel_plot_z",
-    use_slices=True
+    use_slices=True,
+    dump_probe0=True
 )
 
 probe_cfdem_slices.plot_voidfrac(
     slice_dirn="y", 
     x_var="velocity",
-    png_name="voidfrac_time_plot_y"
+    png_name="voidfrac_vel_plot_y",
+    dump_probe0=True
 )
 
-probe_cfdem_slices.plot_pressure(slice_dirn="z", 
+probe_cfdem_slices.plot_pressure(slice_dirn="z",
     x_var="time", 
     png_name="pressure_time_plot_z",
     use_slices=True
 )
 
-probe_cfdem_slices.plot_contactarea()
+# probe_cfdem_slices.plot_contactarea()
