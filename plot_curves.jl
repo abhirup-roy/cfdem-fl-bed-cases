@@ -26,8 +26,8 @@ plot_pressure(
 
 plot_pressure(
     flbed,
-    slice_dirn="z",
+    slice_dirn='z',
     x_var="time",
     png_name="pressure_time_plot_z",
-    use_slices=True
+    use_slices=true
 )

@@ -17,6 +17,9 @@ export FluidisedBed, plot_pressure
     plots_dir::String
     t::Vector{Float32} = Vector{Float32}()
     v_z::Vector{Float32} = Vector{Float32}()
+    
+    _timeser_df::Union{DataFrame, Nothing} = nothing
+    _df_store::Union{Array, Nothing} = nothing
 end
 
 function _find_cdfmedian(x::Vector{Float32})
@@ -94,7 +97,7 @@ function _calc_vel!(flbed::FluidisedBed, time_df::DataFrame)
         end
     end
     time_df.v_z = vz_arr
-    time_df.direction = map(_map_direction, vz_arr)
+    time_df.direction = map(_map_direction, time_df.time)
 end
 
 function _probe2df(flbed::FluidisedBed, use_slices::Bool, slice_dirn::Char, y_agg)
@@ -171,6 +174,9 @@ function _probe2df(flbed::FluidisedBed, use_slices::Bool, slice_dirn::Char, y_ag
             delim=' ', ignorerepeated=true, header=headers
         )
     end
+
+    sort!(pressure_df, :time)
+
     if flbed.dump2csv
         CSV.write(joinpath(flbed.plots_dir, "pressure.csv"), pressure_df)
     end
@@ -193,12 +199,23 @@ function plot_pressure(
     end
 
     plot_suffix = use_slices ? "_slice" : "_probes"
-    pressure_df = _probe2df(flbed, use_slices, slice_dirn, y_agg)
+
+    if (isnothing(flbed._timeser_df)) || (flbed._df_store != [slice_dirn, "pressure"])
+        flbed._timeser_df = _probe2df(flbed, use_slices, slice_dirn, y_agg)
+        flbed._df_store = [slice_dirn, "pressure"]
+    end
 
     if x_var == "time"
-        x_data = pressure_df.time
-        y_df = pressure_df[!, Not(:time)]
+        x_data = flbed._timeser_df.time
+        if "direction" in names(flbed._timeser_df)
+            y_df = flbed._timeser_df[!, Not([:time, :direction, :v_z])]
+        else
+            y_df = flbed._timeser_df[!, Not(:time)]
+        end
+
+        println(y_df)
         y_data = Matrix(y_df)
+
         label_names = ["Probe $(i)" for i in 0:flbed.n_probes-1]
         label_matrix = reshape(label_names, 1, length(label_names))
 
@@ -209,8 +226,8 @@ function plot_pressure(
         )
 
     elseif x_var == "velocity"
-        _calc_vel!(flbed, pressure_df)
-        pressure_gdf = groupby(pressure_df, [:direction, :v_z])
+        _calc_vel!(flbed, flbed._timeser_df)
+        pressure_gdf = groupby(flbed._timeser_df, [:direction, :v_z])
         cols_to_average = valuecols(pressure_gdf)
         vel_plot_df = combine(pressure_gdf, cols_to_average .=> mean)
 
@@ -220,13 +237,16 @@ function plot_pressure(
         vel_down = filter(:direction => in(["down", "max"]), vel_plot_df)
         sort!(vel_down, :v_z)
 
+        println(vel_up)
+        println(vel_down)
+
         if slice_dirn == 'z'
             vel_data_up = vel_up.v_z
-            p_data_down = Matrix(
+            p_data_up = Matrix(
                 vel_up[!, Not([:v_z, :direction])]
             )
             vel_down_data = vel_down.v_z
-            p_data_up = Matrix(
+            p_data_down = Matrix(
                 vel_down[!, Not([:v_z, :direction])]
             )
             label_names = Array{String}(undef, flbed.n_probes)
@@ -236,12 +256,12 @@ function plot_pressure(
 
             for i in 0:flbed.n_probes-1
                 plot!(
-                    vel_data_up, getproperty(p_data_up, Symbol("probe_$(i)")),
-                    label=label_names[i+1], xlabel="Velocity (m/s)", dashed=false, color=:blue, marker=:circle
+                    vel_data_up, p_data_up[:, i+1],
+                    label="$(label_names[i+1]) (Increasing Velocity)", xlabel="V    elocity (m/s)", dashed=false, color=i+1, marker=:circle
                 )
                 plot!(
-                    vel_down_data, getproperty(p_data_down, Symbol("probe_$(i)")),
-                    label=label_names[i+1], xlabel="Velocity (m/s)", dashed=true, color=:blue, marker=:circle
+                    vel_down_data, p_data_down[:, i+1],
+                    label="$(label_names[i+1]) (Decreasing Velocity)", xlabel="Velocity (m/s)", linestyle=:dash, color=i+1, marker=:circle
                 )
             end
 
@@ -259,8 +279,14 @@ function plot_pressure(
                 ylabel="Pressure (Pa)", marker=:circle, dashed=true
             )
         end
-        savefig(joinpath(flbed.plots_dir, "pressure_$(x_var)$(plot_suffix).png"))
     end
+    if isnothing(png_name)
+        png_name = "pressure_$(x_var)_$(slice_dirn)_$(plot_suffix)"
+    elseif !endswith(png_name, ".png")
+        png_name *= ".png"
+    end
+
+    savefig(joinpath(flbed.plots_dir, "pressure_$(x_var)_$(plot_suffix).png"))
 
 end
 end
