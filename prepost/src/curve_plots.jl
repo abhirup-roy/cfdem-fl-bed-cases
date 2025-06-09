@@ -23,7 +23,7 @@ function _find_cdfmedian(x::Vector{Float32})
     x_unique = unique(x)
     x_counts = [count(==(element), x) for element in unique(x)]
     csum = cumsum(x_counts)
-    cdf = cumsum / cumsum[end]
+    cdf = csum / csum[end]
 
     pct_50 = percentile(cdf, 0.5)
     median_idx = findfirst(==(pct_50), cdf)
@@ -34,16 +34,15 @@ end
 function _read_probetxt(flbed::FluidisedBed)
 
     open(flbed.velcfg_path, "r") do file
-        probe_txt = read(file, String)
-        for line in eachline(probe_txt)
+        for line in eachline(file)
             line = replace(line, "(" => "")
             line = replace(line, ")" => "")
             line_splt = split(line, " ")
 
             t_val = parse(Float32, line_splt[1])
-            push!(t, t_val)
+            push!(flbed.t, t_val)
             v_z_val = parse(Float32, line_splt[end])
-            push!(v_z, v_z_val)
+            push!(flbed.v_z, v_z_val)
         end
     end
 end
@@ -67,10 +66,12 @@ function _calc_vel!(flbed::FluidisedBed, time_df::DataFrame)
     if !(length(flbed.t) > 0) && !(length(flbed.v_z) > 0)
         _read_probetxt(flbed)
     end
-    for i in 1:length(flbed.t)
-        if flbed.v_z[i] == self.v_z[i+1]
+    
+    for i in 1:(length(flbed.t)-1)
+        if flbed.v_z[i] == flbed.v_z[i+1]
             push!(bounds, [flbed.t[i], flbed.t[i+1]])
             push!(vel, flbed.v_z[i])
+
             if flbed.v_z[i] == maximum(flbed.v_z)
                 max_vel_t1 = flbed.t[i]
                 max_vel_t2 = flbed.t[i+1]
@@ -82,14 +83,14 @@ function _calc_vel!(flbed::FluidisedBed, time_df::DataFrame)
     lb = [b[1] for b in bounds]
     ub = [b[2] for b in bounds]
 
-    vz_arr = zeros(Float32, length(lb))
+    vz_arr = zeros(Float32, length(time_df.time))
 
-    for i in 1:length(lb)
-        mask = (flbed.t .>= lb[i]) .& (flbed.t .<= ub[i])
-        vz_arr[mask] = vel[i]
-        if i < length(lb)
-            gap_mask = (flbed.t .>= ub[i]) .& (flbed.t .<= lb[i+1])
-            vz_arr[gap_mask] = NaN
+    for i in 1:length(bounds)
+        mask = (time_df.time .>= lb[i]) .& (time_df.time .<= ub[i])
+        vz_arr[mask] .= vel[i]
+        if i < length(bounds)
+            gap_mask = (time_df.time .>= ub[i]) .& (time_df.time .<= lb[i+1])
+            vz_arr[gap_mask] .= NaN
         end
     end
     time_df.v_z = vz_arr
@@ -112,21 +113,24 @@ function _probe2df(flbed::FluidisedBed, use_slices::Bool, slice_dirn::Char, y_ag
         while time_idx <= n_times
             if slice_dirn == 'z'
 
-                for i = 0:flbed.n_probes
+                for i = 0:flbed.n_probes-1
                     dir = times[time_idx]
                     pdata_path = joinpath(
-                        [flbed.presure_path, dir, "/p_zNormal0.vtk"]
+                        flbed.presure_path, dir, "p_zNormal$i.vtk"
                     )
-                    p_data = read_vtk(pdata_path)
-                    p_arr = p_data.cell_data["p"]
-                    pressure_arr[time_idx][i] = mean(p_arr)
-                end
+                    if !isfile(pdata_path)
+                        throw("VTK file not found: $pdata_path")
+                    end
 
-                pressure_df = DataFrame(
-                    time=parse.(Float32, times),
-                    (Symbol("probe$i") => pressure_arr[:, i+1] for i in 0:flbed.n_probes-1)...,
-                )
-                rename!(pressure_df, headers)
+                    println(pdata_path)
+                    p_data = read_vtk(pdata_path)
+                    try
+                        p_arr = p_data.point_data["p"]
+                    catch e
+                        throw("Error reading pressure data from $pdata_path: $e")
+                    end
+                    pressure_arr[time_idx, i+1] = mean(p_arr)
+                end
 
             elseif slice_dirn == 'y'
                 p_data = read_vtk(
@@ -153,19 +157,25 @@ function _probe2df(flbed::FluidisedBed, use_slices::Bool, slice_dirn::Char, y_ag
                 error("Unknown slice direction: $slice_dirn",
                     " (expected 'z' or 'y')")
             end
+            time_idx += 1
         end
+        df_dict = Dict{String, Vector{Float32}}("time" => parse.(Float32, times))
+                for i in 0:flbed.n_probes-1
+                    df_dict["probe_$(i)"] = pressure_arr[:, i+1]
+                end
+                pressure_df = DataFrame(df_dict)
     else
 
         pressure_df = CSV.read(
             flbed.presure_path, DataFrame, skipto=8,
             delim=' ', ignorerepeated=true, header=headers
         )
-
     end
     if flbed.dump2csv
         CSV.write(joinpath(flbed.plots_dir, "pressure.csv"), pressure_df)
     end
 
+    return pressure_df
 
 
 
@@ -202,7 +212,7 @@ function plot_pressure(
         _calc_vel!(flbed, pressure_df)
         pressure_gdf = groupby(pressure_df, [:direction, :v_z])
         cols_to_average = valuecols(pressure_gdf)
-        vel_plot_df = combine(gdf, cols_to_average .=> mean)
+        vel_plot_df = combine(pressure_gdf, cols_to_average .=> mean)
 
         vel_up = filter(:direction => in(["up", "max"]), vel_plot_df)
         sort!(vel_up, :v_z)
@@ -226,11 +236,11 @@ function plot_pressure(
 
             for i in 0:flbed.n_probes-1
                 plot!(
-                    vel_data_up, p_data_up.probe_$(i + 1),
+                    vel_data_up, getproperty(p_data_up, Symbol("probe_$(i)")),
                     label=label_names[i+1], xlabel="Velocity (m/s)", dashed=false, color=:blue, marker=:circle
                 )
                 plot!(
-                    vel_down_data, p_data_down.probe_$(i + 1),
+                    vel_down_data, getproperty(p_data_down, Symbol("probe_$(i)")),
                     label=label_names[i+1], xlabel="Velocity (m/s)", dashed=true, color=:blue, marker=:circle
                 )
             end
