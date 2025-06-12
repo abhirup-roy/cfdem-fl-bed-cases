@@ -7,7 +7,7 @@ using DataFrames
 using CSV
 using Plots
 
-export FluidisedBed, plot_pressure
+export FluidisedBed, plot_pressure, plot_voidfrac
 
 @kwdef mutable struct FluidisedBed
     presure_path::String
@@ -23,15 +23,33 @@ export FluidisedBed, plot_pressure
 end
 
 function _find_cdfmedian(x::Vector{Float32})
-    x_unique = unique(x)
-    x_counts = [count(==(element), x) for element in unique(x)]
-    csum = cumsum(x_counts)
+    x_unique = sort(unique(x))
+    x_counts = values(countmap(x))
+    csum = accumulate(+, x_counts)
     cdf = csum / csum[end]
 
-    pct_50 = percentile(cdf, 0.5)
-    median_idx = findfirst(==(pct_50), cdf)
+    median_idx = findfirst(==(0.5), cdf)
 
-    return x_unique[median_idx]
+    if isnothing(median_idx)
+        upper_idx = findfirst(>=(0.5), cdf)
+        lower_idx = findlast(<=(0.5), cdf)
+        
+        if isnothing(upper_idx)
+            return x_unique[lower_idx]
+        elseif isnothing(lower_idx)
+            return x_unique[upper_idx]
+        else
+            intrpl8(x1, p1, x2, p2, p) = x1 + (x2 - x1) * (p - p1) / (p2 - p1)
+
+            median_val = intrpl8(
+                x_unique[lower_idx], cdf[lower_idx],
+                x_unique[upper_idx], cdf[upper_idx], 0.5
+            )
+            return median_val
+        end
+    else
+        return x_unique[median_idx]
+    end
 end
 
 function _read_probetxt(flbed::FluidisedBed)
@@ -122,7 +140,7 @@ function _probe2df(flbed::FluidisedBed, use_slices::Bool, slice_dirn::Char, y_ag
                         flbed.presure_path, dir, "p_zNormal$i.vtk"
                     )
                     if !isfile(pdata_path)
-                        throw("VTK file not found: $pdata_path")
+                        throw(LoadError("VTK file not found: $pdata_path"))
                     end
 
                     println(pdata_path)
@@ -130,7 +148,7 @@ function _probe2df(flbed::FluidisedBed, use_slices::Bool, slice_dirn::Char, y_ag
                     try
                         p_arr = p_data.point_data["p"]
                     catch e
-                        throw("Error reading pressure data from $pdata_path: $e")
+                        throw(LoadError("Error reading pressure data from $pdata_path: $e"))
                     end
                     pressure_arr[time_idx, i+1] = mean(p_arr)
                 end
@@ -142,7 +160,8 @@ function _probe2df(flbed::FluidisedBed, use_slices::Bool, slice_dirn::Char, y_ag
                 p_arr = p_data.cell_data["p"]
 
                 if y_agg == "cdf_median"
-                    p_arr = _find_cdfmedian(p_arr)
+                    p_arr = median(p_arr)
+                    p_arr = Float32.(p_arr)
                 elseif y_agg == "mean"
                     p_arr = mean(p_arr)
                 elseif y_agg == "median"
@@ -163,10 +182,12 @@ function _probe2df(flbed::FluidisedBed, use_slices::Bool, slice_dirn::Char, y_ag
             time_idx += 1
         end
         df_dict = Dict{String, Vector{Float32}}("time" => parse.(Float32, times))
-                for i in 0:flbed.n_probes-1
-                    df_dict["probe_$(i)"] = pressure_arr[:, i+1]
-                end
-                pressure_df = DataFrame(df_dict)
+        
+        for i in 0:flbed.n_probes-1
+            df_dict["probe_$(i)"] = pressure_arr[:, i+1]
+        end
+
+        pressure_df = DataFrame(df_dict)
     else
 
         pressure_df = CSV.read(
@@ -287,6 +308,162 @@ function plot_pressure(
     end
 
     savefig(joinpath(flbed.plots_dir, "pressure_$(x_var)_$(plot_suffix).png"))
+end
+
+function _read_vf(flbed::FluidisedBed, post_dir::String, slice_dirn::Char)
+    
+    times = readdir(post_dir)
+    n_times = length(times)
+
+    if slice_dirn == 'y'
+        voidfrac_arr = zeros(Float32, n_times)
+    elseif slice_dirn == 'z'
+        voidfrac_arr = zeros(Float32, n_times, flbed.n_probes)
+    else
+        error("Unknown slice direction: $slice_dirn (expected 'z' or 'y')")
+    end
+
+    time_idx = 1
+    while time_idx <= n_times
+        dir = times[time_idx]
+        if slice_dirn == 'z'
+            for i = 0:flbed.n_probes-1
+                vfdata_path = joinpath(
+                    post_dir, dir, "voidfraction_zNormal$i.vtk"
+                )
+                if !isfile(vfdata_path)
+                    throw(LoadError("VTK file not found: $vfdata_path"))
+                end
+
+                vf_data = read_vtk(vfdata_path)
+                try
+                    vf_arr = Float32.(vf_data.point_data["voidfraction"])
+                catch e
+                    throw(LoadError("Error reading void fraction data from $vfdata_path: $e"))
+                end
+                voidfrac_arr[time_idx, i+1] = mean(vf_arr)
+            end
+
+        elseif slice_dirn == 'y'
+            vf_data = read_vtk(
+                joinpath(post_dir, dir, "voidfraction_yNormal.vtk")
+            )
+
+            vf_arr = Float32.(vf_data.point_data["voidfraction"])
+            voidfrac_arr[time_idx] = _find_cdfmedian(vf_arr)
+            println("Void fraction at time $(times[time_idx]): $(voidfrac_arr[time_idx])")
+
+        else
+            error("Unknown slice direction: $slice_dirn (expected 'z')")
+        end
+        time_idx += 1
+    end
+
+    if slice_dirn == 'z'
+        vdf_dict = Dict{String, Vector{Float32}}("time" => parse.(Float32, times))
+        for i in 0:flbed.n_probes-1
+            vdf_dict["probe_$(i)"] = voidfrac_arr[:, i+1]
+        end
+        voidfrac_df = DataFrame(vdf_dict)
+    else
+        voidfrac_df = DataFrame(
+            time=parse.(Float32, times),
+            void_fraction=voidfrac_arr
+        )
+    end
+    sort!(voidfrac_df, :time)
+    return voidfrac_df
+end
+
+function plot_voidfrac(
+    flbed::FluidisedBed;
+    slice_dirn::Char='y',
+    x_var::String="velocity",
+    post_dir::String="CFD/postProcessing/cuttingPlane/",
+    png_name=nothing,
+)   
+    if flbed._df_store != [slice_dirn, "void_fraction"]
+        flbed._df_store = [slice_dirn, "void_fraction"]
+        flbed._timeser_df = _read_vf(flbed, post_dir, slice_dirn)
+    end
+    println(flbed._timeser_df)
+    
+    if x_var == "time"
+        x_data = flbed._timeser_df.time
+        y_data = Matrix(flbed._timeser_df[!, Not(:time)])
+        if slice_dirn == 'z'
+            label_names = ["Probe $(i)" for i in 0:flbed.n_probes-1]
+        else
+            label_names = ["Void Fraction"]
+        end
+        label_matrix = reshape(label_names, 1, length(label_names))
+
+        plot(
+            x_data, y_data, label=label_matrix,
+            xlabel="Time (s)", ylabel="Void Fraction",
+            title="Void Fraction vs Time"
+        )
+    elseif x_var == "velocity"
+        _calc_vel!(flbed, flbed._timeser_df)
+        voidfrac_gdf = groupby(flbed._timeser_df, [:direction, :v_z])
+        cols_to_average = valuecols(voidfrac_gdf)
+        vel_plot_df = combine(voidfrac_gdf, cols_to_average .=> mean)
+
+        vel_up = filter(:direction => in(["up", "max"]), vel_plot_df)
+        sort!(vel_up, :v_z)
+        vel_down = filter(:direction => in(["down", "max"]), vel_plot_df)
+        sort!(vel_down, :v_z)
+
+        if slice_dirn == 'z'
+            vel_data_up = vel_up.v_z
+            vf_data_up = Matrix(
+                vel_up[!, Not([:v_z, :direction])]
+            )
+            vel_down_data = vel_down.v_z
+            vf_data_down = Matrix(
+                vel_down[!, Not([:v_z, :direction])]
+            )
+            label_names = Array{String}(undef, flbed.n_probes)
+            for i in 0:flbed.n_probes-1
+                label_names[i+1] = "Probe $(i)"
+            end
+
+            for i in 0:flbed.n_probes-1
+                plot!(
+                    vel_data_up, vf_data_up[:, i+1],
+                    label="$(label_names[i+1]) (Increasing Velocity)", xlabel="Velocity (m/s)", dashed=false, color=i+1, marker=:circle
+                )
+                plot!(
+                    vel_down_data, vf_data_down[:, i+1],
+                    label="$(label_names[i+1]) (Decreasing Velocity)", xlabel="Velocity (m/s)", linestyle=:dash, color=i+1, marker=:circle
+                )
+            end
+        else
+            plot(
+                vel_up.v_z, vel_up.void_fraction_mean,
+                label="Increasing Velocity",
+                color=:blue, xlabel="Velocity (m/s)",
+                ylabel="Void Fraction", dashed=false, marker=:circle
+            )
+            plot!(
+                vel_down.v_z, vel_down.void_fraction_mean,
+                label="Decreasing Velocity",
+                color=:red, xlabel="Velocity (m/s)",
+                ylabel="Void Fraction", marker=:circle, linestyle=:dash
+            )
+        end
+    end
+    if isnothing(png_name)
+        png_name = "void_fraction_$(x_var)_$(slice_dirn)"
+    elseif !endswith(png_name, ".png")
+        png_name *= ".png"
+    end
+    savefig(joinpath(flbed.plots_dir, png_name))
+    if flbed.dump2csv
+        CSV.write(joinpath(flbed.plots_dir, "void_fraction.csv"), flbed._timeser_df)
+    end
+
+
 
 end
 end
