@@ -18,22 +18,19 @@ flbed = FluidisedBed(
 )
 
 
-# plot_pressure(
-#     flbed,
-#     x_var="velocity",
-#     slice_dirn='z',
-#     use_slices=true,
-# )
+plot_pressure(
+    flbed,
+    x_var="velocity",
+    slice_dirn='z',
+    use_slices=true,
+)
 
-# plot_pressure(
-#     flbed,
-#     slice_dirn='z',
-#     x_var="time",
-#     png_name="pressure_time_plot_z",
-#     use_slices=true
-# )
-
-
+plot_pressure(
+    flbed,
+    slice_dirn='z',
+    x_var="time",
+    use_slices=true
+)
 plot_voidfrac(
     flbed,
     x_var="velocity",
