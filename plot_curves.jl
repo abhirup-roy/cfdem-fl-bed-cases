@@ -5,6 +5,8 @@ Pkg.instantiate()
 
 using FluidisedBedAnalysis
 
+@time begin
+
 pressure_path = "CFD/postProcessing/cuttingPlane/"
 velcfg_path = "prepost/velcfg.txt"
 plots_dir = "plots/"
@@ -36,3 +38,5 @@ plot_voidfrac(
     x_var="velocity",
     slice_dirn='y'
 )
+
+end

@@ -7,7 +7,11 @@ using DataFrames
 using CSV
 using Plots
 
-export FluidisedBed, plot_pressure, plot_voidfrac
+export FluidisedBed,
+       plot_pressure,
+       plot_voidfrac,
+       _read_vf,
+       _probe2df
 
 @kwdef mutable struct FluidisedBed
     presure_path::String
@@ -15,11 +19,19 @@ export FluidisedBed, plot_pressure, plot_voidfrac
     dump2csv::Bool
     velcfg_path::String
     plots_dir::String
+    
     t::Vector{Float32} = Vector{Float32}()
     v_z::Vector{Float32} = Vector{Float32}()
+    void_frac_path::Union{String, Nothing} = nothing
     
     _timeser_df::Union{DataFrame, Nothing} = nothing
     _df_store::Union{Array, Nothing} = nothing
+    p_diameter::Union{Real, Nothing} = nothing
+    𝜌_p::Union{Real, Nothing} = nothing
+    poisson_ratio::Union{Real, Nothing} = nothing
+    youngs_modulus::Union{Real, Nothing} = nothing
+    ced::Union{Real, Nothing} = nothing
+    _model_store = Dict{String, Array{Float32}}()
 end
 
 function _find_cdfmedian(x::Vector{Float32})
@@ -104,18 +116,20 @@ function _calc_vel!(flbed::FluidisedBed, time_df::DataFrame)
     lb = [b[1] for b in bounds]
     ub = [b[2] for b in bounds]
 
-    vz_arr = zeros(Float32, length(time_df.time))
+    vz_arr = Vector{Union{Float32, Missing}}(undef, length(time_df.time))
+    fill!(vz_arr, 0.0f0)
 
     for i in 1:length(bounds)
         mask = (time_df.time .>= lb[i]) .& (time_df.time .<= ub[i])
         vz_arr[mask] .= vel[i]
         if i < length(bounds)
             gap_mask = (time_df.time .>= ub[i]) .& (time_df.time .<= lb[i+1])
-            vz_arr[gap_mask] .= NaN
+            vz_arr[gap_mask] .= missing
         end
     end
     time_df.v_z = vz_arr
     time_df.direction = map(_map_direction, time_df.time)
+    dropmissing!(time_df)
 end
 
 function _probe2df(flbed::FluidisedBed, use_slices::Bool, slice_dirn::Char, y_agg)
@@ -379,9 +393,15 @@ function plot_voidfrac(
     flbed::FluidisedBed;
     slice_dirn::Char='y',
     x_var::String="velocity",
-    post_dir::String="CFD/postProcessing/cuttingPlane/",
     png_name=nothing,
 )   
+
+    if flbed.void_frac_path == nothing
+        post_dir = "CFD/postProcessing/cuttingPlane/"
+    else
+        post_dir = flbed.void_frac_path
+    end
+
     if flbed._df_store != [slice_dirn, "void_fraction"]
         flbed._df_store = [slice_dirn, "void_fraction"]
         flbed._timeser_df = _read_vf(flbed, post_dir, slice_dirn)

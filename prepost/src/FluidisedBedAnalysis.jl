@@ -1,7 +1,20 @@
 module FluidisedBedAnalysis
 
 include("curve_plots.jl")
+include("model_analysis.jl")
+
 using .CurvePlots
-export FluidisedBed, plot_pressure, plot_voidfrac
+using .BoModels
+
+export FluidisedBed,
+       plot_pressure,
+       plot_voidfrac,
+       sim_params,
+       overshoot_model,
+       dhr_model,
+       hyst_model,
+       intrinsic_bond_num,
+       model_summary
+
 
 end
