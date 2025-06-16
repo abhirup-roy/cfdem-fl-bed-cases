@@ -734,7 +734,7 @@ if __name__ == "__main__":
     pressure_path = 'CFD/postProcessing/cuttingPlane/'
     velcfg_path = 'velcfg.txt'
 
-    probe_cfdem_slices = ProbeAnalysis(
+    probe_cfdem_slices = FlBedPlot(
         pressure_path=pressure_path,
         nprobes=5,
         velcfg_path=velcfg_path,
