@@ -6,12 +6,14 @@ Plotting utils for CFDEM fluidised bed simulations.
 """
 
 import os
+import re
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
 import pandas as pd
-
 import pyvista as pv
+from pyevtk.hl import pointsToVTK
 from warnings import warn
 
 __author__ = "Abhirup Roy"
@@ -410,7 +412,95 @@ class ProbeAnalysis():
         else:
             plt.savefig(self.plots_dir + "contactarea_time_plot.png")
 
-    
+def liggghts2vtk(
+        timestep: float= 5e-6,
+        vtk_dir: str=None,
+        dump_every: int=None,
+        liggghts_dump_dir: str=None,
+        file_suffix: str=".liggghts_run"
+        ):
+    """
+    Convert LIGGGHTS dump files to VTK format for visualization using PyVista.
+
+    **Arguments**:
+    FLOAT   timestep: Time step of the simulation in seconds. Default is 5e-6.
+    STRING  vtk_dir: Directory to save the VTK files. Default is "DEM/post/vtk/".
+    INT     dump_every: Interval at which to process the dump files. If None, all files are processed.
+    STRING  liggghts_dump_dir: Directory containing the LIGGGHTS dump files. Default is "DEM/post/".
+    """
+
+
+    if vtk_dir is None:
+        vtk_dir = "DEM/post/vtk/"
+    if not os.path.isdir(vtk_dir):
+        os.makedirs(vtk_dir, exist_ok=True)
+
+    if not liggghts_dump_dir:
+        liggghts_dump_dir = "DEM/post/"
+    elif not os.path.isdir(liggghts_dump_dir):
+        raise Exception(f"LIGGGHTS dump directory {liggghts_dump_dir} does not exist")
+
+    is_liggghts_file = lambda filename: filename.endswith(file_suffix)
+    liggghts_files = os.listdir(liggghts_dump_dir)
+    liggghts_files = list(
+        filter(is_liggghts_file, liggghts_files)
+    )
+
+    if not liggghts_files:
+        raise Exception(f"No LIGGGHTS dump files found in {liggghts_dump_dir}")
+
+    def sort_key(filename):
+        match = re.search(r'\d+', filename)
+        return int(match.group(0)) if match else 0
+    liggghts_files.sort(key=sort_key)
+
+    if dump_every:
+        liggghts_files = liggghts_files[::dump_every]
+
+    with open(os.path.join(liggghts_dump_dir, liggghts_files[0]), 'r') as f:
+        header = f.read().split('\n')[8]
+        header = header.split()[2:]
+
+    dump_diff = sort_key(liggghts_files[1]) - sort_key(liggghts_files[0])
+    step_diff = sort_key(liggghts_files[0]) - dump_diff
+
+
+    for file in liggghts_files:
+
+        vtk_name = file.split(file_suffix)[0]
+        dump_df = pd.read_csv(
+            os.path.join(liggghts_dump_dir, file),
+            skiprows=9, sep=' ', header=None, 
+            engine='pyarrow'
+        ).iloc[:,:-1]
+        dump_df.columns = header
+
+        x = np.array(dump_df["x"].values, dtype=np.float64)
+        y = np.array(dump_df["y"].values, dtype=np.float64)
+        z = np.array(dump_df["z"].values, dtype=np.float64)
+        velocity = np.array(np.linalg.norm(dump_df[['vx', 'vy', 'vz']].values, axis=1), dtype=np.float64)
+        velocity_x = np.array(dump_df['vx'].values, dtype=np.float64)
+        velocity_y = np.array(dump_df['vy'].values, dtype=np.float64)
+        velocity_z = np.array(dump_df['vz'].values, dtype=np.float64)
+        radius = np.array(dump_df['radius'].values, dtype=np.float64)
+
+
+        time = (sort_key(file) - step_diff) * timestep
+        
+        pointsToVTK(
+            os.path.join(vtk_dir, vtk_name),
+            x, y, z,
+            data=dict(
+                time=np.full(len(x), time, dtype=np.float64),
+                radius=radius,
+                velocity=velocity,
+                velocity_x=velocity_x,
+                velocity_y=velocity_y,
+                velocity_z=velocity_z
+            )
+        )
+
+
 if __name__ == "__main__":
 
     # Example usage - usable as a standalone script for default paths
