@@ -1,5 +1,7 @@
 module FluidisedBedAnalysis
 
+# Based module for fluidised bed pre/post processing
+
 include("curve_plots.jl")
 include("model_analysis.jl")
 

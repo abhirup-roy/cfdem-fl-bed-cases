@@ -1,4 +1,9 @@
 module CurvePlots
+"""
+Module for plotting pressure and void fraction data from fluidised bed simulations.
+This module provides functionality to read pressure and void fraction data from simulation results,
+and plot them against time or velocity. It supports both probe-based and slice-based data extraction.
+"""
 
 using VTKDataIO
 using StatsBase
@@ -13,6 +18,32 @@ export FluidisedBed,
        _read_vf,
        _probe2df
 
+       
+"""
+    FluidisedBed
+
+A mutable struct representing a fluidised bed simulation configuration and results.
+
+# Fields
+- `presure_path::String`: Path to the pressure data files.
+- `n_probes::Int`: Number of pressure probes used in the simulation.
+- `dump2csv::Bool`: Flag indicating whether to dump data to CSV files.
+- `velcfg_path::String`: Path to the velocity configuration files.
+- `plots_dir::String`: Directory where plots will be saved.
+- `t::Vector{Float32}`: Time values for simulation data.
+
+# Internals
+- `v_z::Vector{Float32}`: Vertical velocity values.
+- `void_frac_path::Union{String, Nothing}`: Path to void fraction data, if available.
+- `_timeser_df::Union{DataFrame, Nothing}`: DataFrame for time series data.
+- `_df_store::Union{Array, Nothing}`: Storage for dataframes.
+- `p_diameter::Union{Real, Nothing}`: Particle diameter.
+- `𝜌_p::Union{Real, Nothing}`: Particle density.
+- `poisson_ratio::Union{Real, Nothing}`: Poisson ratio for particles.
+- `youngs_modulus::Union{Real, Nothing}`: Young's modulus for particles.
+- `ced::Union{Real, Nothing}`: Coefficient of elastic damping.
+- `_model_store`: Dictionary storing model data as arrays of Float32.
+"""
 @kwdef mutable struct FluidisedBed
     presure_path::String
     n_probes::Int
@@ -34,6 +65,29 @@ export FluidisedBed,
     _model_store = Dict{String, Array{Float32}}()
 end
 
+"""
+    _find_cdfmedian(x::Vector{Float32})
+
+Calculate the median value of a vector using its cumulative distribution function (CDF).
+
+This function computes the median by:
+1. Finding unique values and sorting them
+2. Counting occurrences of each unique value
+3. Computing the cumulative distribution function
+4. Finding the value corresponding to CDF = 0.5
+
+If no exact value exists where CDF = 0.5, the function performs linear interpolation
+between the closest values below and above the median.
+
+# Arguments
+- `x::Vector{Float32}`: Input vector of floating-point values
+
+# Returns
+- `Float32`: The median value of the input vector
+
+# Note
+This is an internal function as indicated by the leading underscore.
+"""
 function _find_cdfmedian(x::Vector{Float32})
     x_unique = sort(unique(x))
     x_counts = values(countmap(x))
@@ -64,6 +118,21 @@ function _find_cdfmedian(x::Vector{Float32})
     end
 end
 
+"""
+    _read_probetxt(flbed::FluidisedBed)
+
+Reads velocity probe data from a text file specified in `flbed.velcfg_path` and populates 
+the time series (`flbed.t`) and vertical velocity (`flbed.v_z`) arrays in the FluidisedBed object.
+
+The function processes each line of the file by:
+1. Removing parentheses from the line
+2. Splitting the line into components
+3. Extracting the time value (first component) and vertical velocity (last component)
+4. Adding these values to the corresponding arrays in the FluidisedBed object
+
+# Arguments
+- `flbed::FluidisedBed`: A FluidisedBed object with a valid `velcfg_path` and initialized `t` and `v_z` arrays
+"""
 function _read_probetxt(flbed::FluidisedBed)
 
     open(flbed.velcfg_path, "r") do file
@@ -80,6 +149,32 @@ function _read_probetxt(flbed::FluidisedBed)
     end
 end
 
+"""
+    _calc_vel!(flbed::FluidisedBed, time_df::DataFrame)
+
+Calculate velocities for a fluidised bed and add them to the provided DataFrame.
+
+This function performs the following operations:
+- Reads probe data if not already loaded
+- Identifies constant velocity segments in the data
+- Determines the time range for maximum velocity
+- Maps velocities to corresponding time points in the provided DataFrame
+- Adds a 'direction' column based on time position relative to maximum velocity period
+- Removes rows with missing velocity values
+
+# Arguments
+- `flbed::FluidisedBed`: A fluidised bed object containing time and velocity data
+- `time_df::DataFrame`: DataFrame with a 'time' column to which velocity data will be added
+
+# Side Effects
+- Modifies `time_df` by adding 'v_z' and 'direction' columns
+- Removes rows with missing values using `dropmissing!`
+
+# Notes
+- The 'direction' column categorizes time points as "up", "max", or "down" based on their 
+  relation to the maximum velocity time range
+- If velocity data isn't already loaded in `flbed`, it's read from probe text files
+"""
 function _calc_vel!(flbed::FluidisedBed, time_df::DataFrame)
     function _map_direction(x)
         if x < max_vel_t1
@@ -132,6 +227,31 @@ function _calc_vel!(flbed::FluidisedBed, time_df::DataFrame)
     dropmissing!(time_df)
 end
 
+"""
+    _probe2df(flbed::FluidisedBed, use_slices::Bool, slice_dirn::Char, y_agg)
+
+Converts pressure probe data from a fluidized bed simulation to a DataFrame.
+
+# Arguments
+- `flbed::FluidisedBed`: A FluidisedBed object containing metadata about the simulation.
+- `use_slices::Bool`: If true, read data from VTK slice files; if false, read from CSV file.
+- `slice_dirn::Char`: Direction of slices ('z' or 'y') when `use_slices` is true.
+- `y_agg`: Aggregation method for y-normal slices. Options: "cdf_median", "mean", "median".
+
+# Returns
+- `DataFrame`: Contains time series pressure data for each probe.
+
+# Behavior
+- For z-normal slices: Reads VTK files for each probe at each time step and computes mean pressure.
+- For y-normal slices: Reads a single VTK file and applies the specified aggregation.
+- For non-slice data: Reads directly from CSV file.
+- Always sorts the resulting DataFrame by time.
+- Optionally writes the DataFrame to CSV if `flbed.dump2csv` is true.
+
+# Throws
+- `LoadError`: If VTK files are missing or pressure data cannot be read.
+- `ErrorException`: If an unknown slice direction or aggregation method is specified.
+"""
 function _probe2df(flbed::FluidisedBed, use_slices::Bool, slice_dirn::Char, y_agg)
 
     headers = ["time"]
@@ -217,10 +337,42 @@ function _probe2df(flbed::FluidisedBed, use_slices::Bool, slice_dirn::Char, y_ag
     end
 
     return pressure_df
-
-
-
 end
+
+"""
+    plot_pressure(
+        flbed::FluidisedBed;
+        x_var::String="velocity",
+        png_name=nothing,
+        use_slices::Bool=true,
+        slice_dirn::Char='z',
+        y_agg=nothing
+    )
+
+Generate plots of pressure data from a fluidised bed simulation.
+
+# Arguments
+- `flbed::FluidisedBed`: The fluidised bed object containing simulation data.
+- `x_var::String="velocity"`: The x-axis variable, either "time" or "velocity".
+- `png_name=nothing`: Custom name for the output PNG file. If `nothing`, a default name is generated.
+- `use_slices::Bool=true`: If `true`, use slice data; otherwise, use probe data.
+- `slice_dirn::Char='z'`: Direction for slicing ('z' supported; 'y' not fully supported).
+- `y_agg=nothing`: Aggregation function for y-direction data if needed.
+
+# Description
+This function creates pressure plots for fluidised bed simulations with two main options:
+- Time series plots: When `x_var="time"`, plots pressure vs. time for each probe.
+- Velocity plots: When `x_var="velocity"`, plots pressure vs. velocity showing hysteresis 
+  between increasing and decreasing velocity conditions.
+
+The function handles data preparation, grouping, and visualization with appropriate labels 
+and styling. Results are saved as PNG files in the `plots_dir` directory of the fluidised bed object.
+
+# Notes
+- Y-direction slicing is currently not fully supported.
+- For velocity plots, separate curves are drawn for increasing and decreasing velocity.
+- The function caches processed data in `flbed._timeser_df` to avoid redundant calculations.
+"""
 function plot_pressure(
     flbed::FluidisedBed;
     x_var::String="velocity",
@@ -324,6 +476,28 @@ function plot_pressure(
     savefig(joinpath(flbed.plots_dir, "pressure_$(x_var)_$(plot_suffix).png"))
 end
 
+
+"""
+    _read_vf(flbed::FluidisedBed, post_dir::String, slice_dirn::Char)
+
+Reads void fraction data from VTK files in the specified post-processing directory.
+
+# Arguments
+- `flbed::FluidisedBed`: A fluidised bed object containing simulation parameters, including `n_probes`.
+- `post_dir::String`: Path to the directory containing post-processing data organized in time-stamped folders.
+- `slice_dirn::Char`: Direction of the slice, either 'z' or 'y'.
+  - 'z': Reads void fraction data from multiple probes along the z-axis.
+  - 'y': Reads void fraction data from a single y-normal slice and calculates the CDF median.
+
+# Returns
+- `DataFrame`: A sorted DataFrame containing time and void fraction data. 
+  - For 'z' direction: columns include 'time' and 'probe_0', 'probe_1', etc.
+  - For 'y' direction: columns include 'time' and 'void_fraction'.
+
+# Throws
+- `LoadError`: If VTK files are not found or void fraction data cannot be read.
+- `ErrorException`: If an unsupported slice direction is specified.
+"""
 function _read_vf(flbed::FluidisedBed, post_dir::String, slice_dirn::Char)
     
     times = readdir(post_dir)
@@ -389,6 +563,32 @@ function _read_vf(flbed::FluidisedBed, post_dir::String, slice_dirn::Char)
     return voidfrac_df
 end
 
+"""
+    plot_voidfrac(
+        flbed::FluidisedBed;
+        slice_dirn::Char='y',
+        x_var::String="velocity",
+        png_name=nothing,
+    )
+
+Generate plots of void fraction data for a fluidised bed simulation.
+
+# Arguments
+- `flbed::FluidisedBed`: The fluidised bed object containing simulation data.
+- `slice_dirn::Char='y'`: The direction of the cutting plane ('x', 'y', or 'z').
+- `x_var::String="velocity"`: The x-axis variable for plotting. Options are "time" or "velocity".
+- `png_name=nothing`: Custom name for the output PNG file. If `nothing`, a default name will be generated.
+
+# Details
+- When `x_var="time"`, generates a plot of void fraction vs time.
+- When `x_var="velocity"`, generates plots showing hysteresis effects with separate curves for increasing and decreasing velocity.
+- For `slice_dirn='z'`, multiple probe points are plotted separately.
+- Saves the plot to `flbed.plots_dir` and optionally exports the data to a CSV file if `flbed.dump2csv` is `true`.
+
+# Note
+The function checks if the void fraction data has already been loaded and stored in `flbed._timeser_df`
+to avoid redundant reading of data.
+"""
 function plot_voidfrac(
     flbed::FluidisedBed;
     slice_dirn::Char='y',
@@ -482,8 +682,5 @@ function plot_voidfrac(
     if flbed.dump2csv
         CSV.write(joinpath(flbed.plots_dir, "void_fraction.csv"), flbed._timeser_df)
     end
-
-
-
 end
 end
