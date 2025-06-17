@@ -11,6 +11,7 @@ using Statistics
 using DataFrames
 using CSV
 using Plots
+using WriteVTK
 
 export FluidisedBed,
        plot_pressure,
@@ -682,5 +683,89 @@ function plot_voidfrac(
     if flbed.dump2csv
         CSV.write(joinpath(flbed.plots_dir, "void_fraction.csv"), flbed._timeser_df)
     end
+end
+
+function liggghts2vtk(
+    ;timestep::Float64 = 5e-6,
+    vtk_dir::String = nothing,
+    dump_every::Union{Int64, Nothing} = nothing,
+    liggghts_dump_dir::Union{String, Nothing} = nothing,
+    file_suffix::String = ".liggghts_run",
+    )
+
+    if isnothing(vtk_dir)
+        vtk_dir = "DEM/post/vtk"
+    end
+    if !isdir(vtk_dir)
+        mkpath(vtk_dir)
+    end
+
+    if isnothing(liggghts_dump_dir)
+        liggghts_dump_dir = "DEM/post"
+    elseif !isdir(liggghts_dump_dir)
+        throw(LoadError("LIGGGHTS dump directory does not exist: $liggghts_dump_dir"))
+    end
+
+    if isnothing(dump_every)
+        dump_every = 1
+    end
+
+    liggghts_files = readdir(liggghts_dump_dir)
+
+    function sort_key(filename)
+        m = match(r"\d+", filename)
+        return m === nothing ? 0 : parse(Int, m.match)
+    end
+
+    !sort!(liggghts_files, by=sort_key)
+    liggghts_files = liggghts_files[begin:dump_every:end]
+    
+    header = open(joinpath(liggghts_dump_dir, liggghts_files[1]), "r") do f
+        line = readlines(f)[9]
+        split(line)[3:end]
+    end
+
+    dump_diff = sort_key(liggghts_files[2]) - sort_key(liggghts_files[1])
+    step_diff = sort_key(liggghts_files[1]) - dump_diff
+
+    for file in liggghts_files
+        vtk_name = replace(file, file_suffix => "")
+        vtk_path = joinpath(vtk_dir, vtk_name)
+
+        dump_df = CSV.read(
+            joinpath(liggghts_dump_dir, file), DataFrame;
+            skipto=10, delim=' ', header=false,
+            ignorerepeated=true,
+        )
+        rename!(dump_df, header)
+
+        x = dump_df.x
+        y = dump_df.y
+        z = dump_df.z
+        vx = dump_df.vx
+        vy = dump_df.vy
+        vz = dump_df.vz
+        velocity = sqrt.(vx.^2 .+ vy.^2 .+ vz.^2)
+        radius = dump_df.radius
+        id = dump_df.id
+        time = (sort_key(file) - step_diff) * timestep
+
+        n_points = length(x)
+        cells = [MeshCell(VTKCellTypes.VTK_VERTEX, (i, )) for i = 1:npoints]
+        vtk_grid(joinpath(vtk_dir, vtk_name), x, y, z, cells) do vtk
+            vtk["vel", VTKPointData] = velocity
+            vtk["radius", VTKPointData] = radius
+            vtk["id", VTKPointData] = id
+            vtk["vx", VTKPointData] = vx
+            vtk["vy", VTKPointData] = vy
+            vtk["vz", VTKPointData] = vz
+        end
+
+    end
+
+
+
+
+
 end
 end
