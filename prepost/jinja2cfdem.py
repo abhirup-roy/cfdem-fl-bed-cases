@@ -1,4 +1,4 @@
-#usr/bin/env python3
+# usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 """
@@ -6,8 +6,6 @@ Populates LIGGGHTS templating scripts for the JKR and SJKR models
 """
 
 import os
-import math
-
 import jinja2 as jj
 import numpy as np
 import json
@@ -20,29 +18,44 @@ __maintainer__ = "Abhirup Roy"
 __email__ = "axr154@bham.ac.uk"
 __status__ = "Development"
 
+
 class LIGGGHTSTemplatePopulator:
 
-    def __init__(self, write_dir:str, template_dir:str, auto_cg:bool, **kwargs:float):
+    def __init__(
+            self,
+            write_dir: str,
+            template_dir: str,
+            auto_cg: bool,
+            **kwargs: float):
         """
         Constructor for the LIGGGHTSTemplatePopulator class.
 
-        ========================================================================
-        ARGS:
-        ========================================================================
-        STRING write_dir:       The directory where the populated templates will be written
-        STRING template_dir:    The directory where the templates are stored
-        BOOL auto_cg:           Whether or not the sim inputs are to be coarse-grained
+        Args:
+        write_dir:
+          The directory where the populated templates will be written
+        template_dir:
+          The directory where the templates are stored
+        auto_cg:
+          Whether or not the sim inputs are to be coarse-grained
+        radius:
+          (OPTIONAL) Particle radius (in meters) - assumed to be monodisperse
+          and spherical. Default is 0.000183 m (183 microns) for Eskal150 simulations.
+        density:
+          (OPTIONAL) The density of the material (in kg/m^3). Default is 1109 kg/m^3
+        bed_mass:
+          (OPTIONAL) Mass of particle bed (in kg). Default is 0.0849 kg
+        contact_dumpstep:
+          (OPTIONAL) Dump frequency for contact data (in timesteps). Default is
+          2645 timesteps.
+        cg_factor:
+          (OPTIONAL) A custom coarse-graining factor (if auto_cg is set to True).
+          Not needed if auto_cg is set to False or if you coarse-grain
+            parameters yourself. Default is None.
 
-        ========================================================================
-        KWARGS:
-        ========================================================================
-        FLOAT radius:           The particle radius (in meters)
-        INT density:            The density of the material (in kg/m^3)
-        FLOAT bed_mass:         The mass of the bed (in kg)
-        INT contact_dumpstep:   The dumpstep for contact data
-        FLOAT cg_factor:        A custom coarse-graining factor (if auto_cg is set to True). Not needed if auto_cg is set to False
-                                or if you coarse-grain parameters yourself
-        FLOAT mesh_radius:      The radius of the mesh (in meters)
+        Raises:
+          ValueError:
+           If the template directory does not exist or if cg_factor is not
+           provided when auto_cg is True.
         """
 
         self.write_dir = write_dir
@@ -50,57 +63,76 @@ class LIGGGHTSTemplatePopulator:
         # Check if the template directory exists
         if not os.path.isdir(template_dir):
             raise ValueError('Template directory does not exist.')
-        
-        # Note default values are for from preliminary work on Eskal150 simulations  
+
+        # Note default values are for from preliminary work on Eskal150
+        # simulations
         self.R = kwargs.get('radius', 0.000183)
         self.density = kwargs.get('density', 1109)
         self.bed_mass = kwargs.get('bed_mass', 0.0849)
         self.contact_dumpstep = kwargs.get('contact_dumpstep', 2645)
-        self.mesh_radius = kwargs.get('mesh_radius', 0.025)
 
         # Default time steps
-        self.timestep_init:float = 1e-6
-        self.timestep_run:float = 5e-6
-        self.n_settle_steps:int = 10000
+        self.timestep_init: float = 1e-6
+        self.timestep_run: float = 5e-6
+        self.n_settle_steps: int = 10000
 
         if auto_cg:
             if 'cg_factor' not in kwargs:
-                raise ValueError('cg_factor must be provided for coarse-grained simulations. Otherwise cg must be set to False or coarsegrain factors yourself.')
+                raise ValueError(
+                    'cg_factor must be provided for coarse-grained simulations. Otherwise cg must be set to False or coarsegrain factors yourself.')
             else:
                 cg_factor = kwargs.get('cg_factor')
             # Apply the coarse-graining factor [Model B from Che et al. (2023)]
             R *= cg_factor
-            density *= 1/cg_factor
+            density *= 1 / cg_factor
             bed_mass *= cg_factor**3
-    
-    def _dump_params(self, params, target_dir:str, save_as:str, filename:str):
-        """
-        Helper function to dump the parameters to a JSON file.
 
-        ARGS:
-            DICT/ARRAY  params: The parameters to be dumped
-            STRING target_dir: The directory where the parameters will be dumped
+    def _dump_params(
+            self,
+            params: dict | list,
+            target_dir: str,
+            save_as: str,
+            filename: str):
+        """
+        Helper function to dump template parameters to a JSON file.
+
+        Args:
+          params:
+            The parameters to be dumped, in dict or list format
+          target_dir:
+            The directory where the parameters will be dumped
+          save_as:
+            The file format to save the parameters in (txt or json)
+          filename:
+            The name of the file to save the parameters to (without extension)
+
+        Raises:
+          ValueError: If the target directory does not exist or if the save_as format is invalid
         """
         if not os.path.isdir(target_dir):
-            raise ValueError(f'Dump target directory {target_dir} does not exist.')
+            raise ValueError(
+                f'Dump target directory {target_dir} does not exist.')
         if save_as == 'txt':
             np.savetxt(f'{target_dir}/{filename}.txt', params)
-        
+
         elif save_as == 'json':
             with open(f'{target_dir}/{filename}.json', 'w') as f:
                 json.dump(params, f)
         else:
             raise ValueError('Invalid file format. Must be "txt" or "json".')
 
-    def set_timestep(self, timestep:float, kind:str):
+    def set_timestep(self, timestep: float, kind: str):
         """
         Set the time step for the simulation for the init and/or run phase.
 
-        ========================================================================
-        ARGS:
-        ========================================================================
-        FLOAT timestep: The time step for the simulation
-        STRING kind: The kind of time step to set ("init" or "run" or "all")
+        Args:
+          timestep:
+            The time step for the simulation
+          kind:
+            The kind of time step to set ("init" or "run" or "all")
+
+        Raises:
+          ValueError: If the kind is not one of "init", "run" or "all"
         """
         if kind == 'init':
             self.timestep_init = timestep
@@ -110,71 +142,66 @@ class LIGGGHTSTemplatePopulator:
             self.timestep_init = timestep
             self.timestep_run = timestep
         else:
-            raise ValueError('Invalid time step kind. Must be "init", "run" or "all".')
+            raise ValueError(
+                'Invalid time step kind. Must be "init", "run" or "all".')
 
-    def set_init_time(self, time:int):
+    def set_init_time(self, time: int):
         """
-        Set the time for the init simulation i.e. the settling time. MUST be run after set_timestep (if being used).
-        ========================================================================
-        ARGS:
-        ========================================================================
-        INT time: The settling time for the init simulation
+        Set the time for the init simulation i.e. the settling time.
+        MUST be run after set_timestep (if being used)
+
+        Args:
+          time:
+            The settling time for the init simulation
         """
-        self.n_settle_steps = int(time/self.timestep_init)
+        self.n_settle_steps = int(time / self.timestep_init)
 
-
-    def _compute_workofadhesion(self, surface_energy:float, radius:float, young_mod:float, poisson_ratio:float):
+    def _compute_workofadhesion(
+            self,
+            surface_energy: float,
+            radius: float,
+            young_mod: float,
+            poisson_ratio: float) -> float:
         """
         Helper function to calculate the work of adhesion of a material using the JKR model (Thornton and Ning, 1998):
 
-        ARGS:
-            FLOAT surface_energy: The surface energy of the material (in J/m^2)
-            FLOAT radius: The particle radius (in meters)
-            FLOAT young_mod: The Young's modulus of the material (in Pa)
-            FLOAT poisson_ratio: The Poisson's ratio of the material
+        Args:
+          surface_energy:
+            The surface energy of the material (in J/m^2)
+          radius:
+            The particle radius (in meters)
+          young_mod:
+            The Young's modulus of the material (in Pa)
+          poisson_ratio:
+           The Poisson's ratio of the material
+
+        Returns:
+          The work of adhesion of the material (in J/m^2)
         """
         # Assuming monodisperse particles
-        E_eq = 0.5 * young_mod/(1-poisson_ratio**2)
+        E_eq = 0.5 * young_mod / (1 - poisson_ratio**2)
         R_eq = radius / 2
-        workofadhesion = 7.09 * (surface_energy**5 * R_eq**4 / E_eq**2)**(1/3)
+        workofadhesion = 7.09 * (surface_energy**5 *
+                                 R_eq**4 / E_eq**2)**(1 / 3)
         return workofadhesion
 
-    def _sig_figs(self, x: float, precision: int):
-        """
-        Rounds a number to number of significant figures
-        Parameters:
-        - x - the number to be rounded
-        - precision (integer) - the number of significant figures
-        Returns:
-        - float
-        """
-        x = float(x)
-        precision = int(precision)
-
-        return round(x, -int(math.floor(math.log10(abs(x)))) + (precision - 1))
-
-    def populate_sjkr_template(self, ced:int, dump_params:bool, compress=False, **kwargs):
+    def populate_sjkr_template(self, ced: int, dump_params: bool, **kwargs):
         """
         Populate the template for the SJKR model:
-        ========================================================================
-        ARGS
-        ========================================================================
-        INT ced: The cohesion energy density value for the simulation
-        BOOL dump_params: Whether or not to dump the parameters to a text file
-        BOOL compress: Whether or not to run a compression simulation
 
-        ========================================================================
-        KWARGS
-        ========================================================================
-        FLOAT compress_timestep: The time step for the compression simulation
-        FLOAT t_compression: The time for the compression simulation
-        FLOAT p_compress: The pressure for the compression simulation
-        FLOAT t_unload: The time for the unloading simulation
-        STRING dump_filename: The name of the file to dump the parameters to
-        STRING dump_filetype: The file format to dump the parameters to (txt or json)
+        Args:
+          ced:
+            The cohesion energy density value for the simulation
+          dump_params:
+            Whether or not to dump the parameters to a text file
+          dump_filename:
+            The name of the file to dump the parameters to (if dump_params is True)
+          dump_filetype:
+            The file format to dump the parameters to (txt or json). Only used if dump_params is True.
         """
 
-        jkr_jinja_env = jj.Environment(loader=jj.FileSystemLoader(f'{self.template_dir}/sjkr'))
+        jkr_jinja_env = jj.Environment(
+            loader=jj.FileSystemLoader(f'{self.template_dir}/sjkr'))
 
         init_script_template = jkr_jinja_env.get_template('in.liggghts_init')
         init_script_contxt = {
@@ -194,42 +221,15 @@ class LIGGGHTSTemplatePopulator:
             'TIMESTEP_RUN': self.timestep_run
         }
         run_script_rendered = run_script_template.render(run_script_contxt)
+
         with open(f'{self.write_dir}/in.liggghts_init', 'w') as f:
             f.write(init_script_rendered)
         with open(f'{self.write_dir}/in.liggghts_run', 'w') as f:
             f.write(run_script_rendered)
 
-        if compress:
-            t_compression = kwargs.get('t_compression', 1)  #Time for compression(s)
-            p_compress = kwargs.get('p_compress', 15_000)  # Pressure for compression (Pa)
-            compress_timestep = kwargs.get('compress_timestep', self.timestep_run)
-            t_unload = kwargs.get('t_unload', 0.1)
-
-            n_compression_timesteps = self._sig_figs(t_compression/compress_timestep, 2)
-            n_unload_timesteps = self._sig_figs(t_unload/compress_timestep, 2)
-            f_compress = p_compress * (np.pi * self.R**2)
-
-            compress_script_template = jkr_jinja_env.get_template('in.liggghts_tap')
-            compress_script_contxt = {
-                'CED': ced,
-                'TIMESTEP': compress_timestep,
-                'F_COMPR': f_compress,
-                'COMPRESSION_TIMESTEPS': n_compression_timesteps,
-                'UNLOAD_TIMESTEPS': n_unload_timesteps
-            }
-            compress_script_rendered = compress_script_template.render(compress_script_contxt)
-            with open(f'{self.write_dir}/in.liggghts_tap', 'w') as f:
-                f.write(compress_script_rendered)
-            with open(f'{self.write_dir}/in.liggghts_run', 'r') as file:
-                run_lines = file.readlines()
-            run_lines[15] = 'read_restart    ../DEM/post/restart/liggghts_tapped.restart\n'
-            with open(f'{self.write_dir}/in.liggghts_run', 'w') as file:
-                file.writelines(run_lines)
-            
-
         if dump_params:
-            dump_filename:str = kwargs.get('dump_filename', 'params')
-            dump_filetype:str = kwargs.get('dump_filetype', 'json')
+            dump_filename: str = kwargs.get('dump_filename', 'params')
+            dump_filetype: str = kwargs.get('dump_filetype', 'json')
             if dump_filetype == 'txt':
                 params = [
                     f'radius={self.R}',
@@ -251,41 +251,50 @@ class LIGGGHTSTemplatePopulator:
                     "model": "sJKR"
                 }
 
-            self._dump_params(params=params, target_dir='pyoutputs', save_as=dump_filetype, filename=dump_filename)
+            self._dump_params(
+                params=params,
+                target_dir='pyoutputs',
+                save_as=dump_filetype,
+                filename=dump_filename)
 
-        
-
-    def populate_jkr_template(self, autocomp_workofadhesion:bool, dump_params:bool, young_mod:float, 
-                              poisson_ratio:float, contact_dumpstep:int, **kwargs:float):
+    def populate_jkr_template(
+            self,
+            autocomp_workofadhesion: bool,
+            dump_params: bool,
+            young_mod: float,
+            poisson_ratio: float,
+            contact_dumpstep: int,
+            **kwargs: float):
         """
         Populate the template for the SJKR model:
-        ========================================================================
-        ARGS
-        ========================================================================
-        BOOL autocomp_workofadhesion: Whether or not to calculate the work of adhesion 
-                                      automatically for script generation
-        FLOAT young_mod: The Young's modulus of the material (in Pa) - REQUIRED
-        FLOAT poisson_ratio: The Poisson's ratio of the material - REQUIRED
-        INT contact_dumpstep: The dumpstep for contact data
-        
-        ========================================================================
-        KWARGS
-        ========================================================================
-        FLOAT surface_energy: The surface energy of the material (in J/m^2) - REQUIRED if autocomp_workofadhesion is True
-        FLOAT workofadhesion: The work of adhesion of the material (in J/m^2) - REQUIRED if autocomp_workofadhesion is False
+        Args:
+          autocomp_workofadhesion:
+            Whether or not to calculate the work of adhesion automatically for script generation
+          young_mod:
+            Young's modulus of the material (in Pa)
+          poisson_ratio:
+            Poisson's ratio of the material (-)
+          contact_dumpstep:
+            The dump frequency for contact data (in timesteps)
+          surface_energy:
+            The surface energy of the material (in J/m^2) - Recommended if autocomp_workofadhesion is True
+          workofadhesion:
+            The work of adhesion of the material (in J/m^2) - Recommended if autocomp_workofadhesion is False
         """
 
-        sjkr_jinja_env = jj.Environment(loader=jj.FileSystemLoader(f'{self.template_dir}/jkr'))
-        
+        sjkr_jinja_env = jj.Environment(
+            loader=jj.FileSystemLoader(f'{self.template_dir}/jkr'))
+
         if autocomp_workofadhesion:
             if 'surface_energy' not in kwargs:
-                raise ValueError('surface_energy must be provided for automatic work of adhesion calculation.')
+                raise ValueError(
+                    'surface_energy must be provided for automatic work of adhesion calculation.')
             else:
                 workofadhesion = self._compute_workofadhesion(
-                    surface_energy = kwargs.get('surface_energy'),
-                    radius = self.R, 
-                    young_mod = young_mod,
-                    poisson_ratio = poisson_ratio
+                    surface_energy=kwargs.get('surface_energy'),
+                    radius=self.R,
+                    young_mod=young_mod,
+                    poisson_ratio=poisson_ratio
                 )
         else:
             workofadhesion = kwargs.get('workofadhesion', 0.116)
@@ -305,7 +314,7 @@ class LIGGGHTSTemplatePopulator:
 
         run_script_template = sjkr_jinja_env.get_template('in.liggghts_run')
         run_script_contxt = {
-           'DUMPSTEP_CONTACT': contact_dumpstep,
+            'DUMPSTEP_CONTACT': contact_dumpstep,
             'WORKOFADHESION': workofadhesion,
             'YOUNG_MOD': young_mod,
             'POISSON_RATIO': poisson_ratio,
@@ -318,8 +327,8 @@ class LIGGGHTSTemplatePopulator:
         with open(f'{self.write_dir}/in.liggghts_run', 'w') as f:
             f.write(run_script_rendered)
         if dump_params:
-            dump_filename:str = kwargs.get('dump_filename', 'params')
-            dump_filetype:str = kwargs.get('dump_filetype', 'json')
+            dump_filename: str = kwargs.get('dump_filename', 'params')
+            dump_filetype: str = kwargs.get('dump_filetype', 'json')
             if dump_filetype == 'txt':
                 params = [
                     f'radius={self.R}',
@@ -333,7 +342,6 @@ class LIGGGHTSTemplatePopulator:
                 ]
                 with open(f'{self.write_dir}/{dump_filename}.txt', 'w') as f:
                     f.writelines(params)
-
             elif dump_filetype == 'json':
                 params = {
                     "radius": self.R,
@@ -346,22 +354,23 @@ class LIGGGHTSTemplatePopulator:
                     "model": "JKR"
                 }
 
-            self._dump_params(params=params, target_dir='pyoutputs', save_as=dump_filetype, filename=dump_filename)
-
-
+            self._dump_params(
+                params=params,
+                target_dir='pyoutputs',
+                save_as=dump_filetype,
+                filename=dump_filename)
 
 
 if __name__ == '__main__':
     ltp = LIGGGHTSTemplatePopulator(
-        write_dir = 'DEM',
-        template_dir = 'templates',
-        auto_cg = False,
-        radius = 0.000183,
-        density = 1109,
-        bed_mass = 0.0849,
-        contact_dumpstep = 2645
+        write_dir='DEM',
+        template_dir='templates',
+        auto_cg=False,
+        radius=0.000183,
+        density=1109,
+        bed_mass=0.0849,
+        contact_dumpstep=2645
     )
 
     # ltp.populate_jkr_template(autocomp_workofadhesion = True, surface_energy = 0.057, young_mod = 5.4e6, poisson_ratio = 0.25, contact_dumpstep = 2645, dump_params = True)
     # ltp.populate_sjkr_template(ced = 0, dump_params = True)
-
