@@ -2,7 +2,7 @@
 
 julia_version = "1.11.4"
 manifest_format = "2.0"
-project_hash = "7dc32d9cb06647e05ff82ace994aa5f4dcaebb64"
+project_hash = "7fb4b771fcf557966f2c64704058f549d4fae2c9"
 
 [[deps.AliasTables]]
 deps = ["PtrArrays", "Random"]
@@ -247,7 +247,7 @@ uuid = "53c48c17-4a7d-5ca2-90c5-79b7896eea93"
 version = "0.8.5"
 
 [[deps.FluidisedBedAnalysis]]
-deps = ["CSV", "DataFrames", "Plots", "Statistics", "StatsBase", "VTKDataIO"]
+deps = ["CSV", "DataFrames", "Plots", "Statistics", "StatsBase", "VTKDataIO", "WriteVTK"]
 path = "prepost"
 uuid = "ea8bd7f1-6f9f-42a5-b31d-69377d2a4403"
 version = "0.1.0"
