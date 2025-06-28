@@ -632,6 +632,19 @@ class FlBedPlot():
         else:
             plt.savefig(self.plots_dir + "contactarea_time_plot.png")
 
+def _liggghtsdump2df(
+        dump_filepath: str,
+        col_names: str) -> pd.DataFrame:
+    dump_df = pd.read_csv(
+        dump_filepath,
+        skiprows=9, sep=' ', header=None,
+        engine='pyarrow'
+    ).iloc[:, :-1]
+
+    dump_df.columns = col_names
+    
+    return dump_df
+     
 
 def liggghts2vtk(
         timestep: float = 5e-6,
@@ -694,12 +707,11 @@ def liggghts2vtk(
     for file in liggghts_files:
 
         vtk_name = file.split(file_suffix)[0]
-        dump_df = pd.read_csv(
+
+        dump_df = _liggghtsdump2df(
             os.path.join(liggghts_dump_dir, file),
-            skiprows=9, sep=' ', header=None,
-            engine='pyarrow'
-        ).iloc[:, :-1]
-        dump_df.columns = header
+            col_names=header
+        )
 
         x = np.array(dump_df["x"].values, dtype=np.float64)
         y = np.array(dump_df["y"].values, dtype=np.float64)
@@ -725,6 +737,104 @@ def liggghts2vtk(
                 velocity_z=velocity_z
             )
         )
+
+def mean_sq_displ(
+        time_rng: tuple[float, float]=None,
+        dump_dir: str="DEM/post",
+        dump: bool=True,
+        plot: bool=True,
+        timestep: float=5e-6,
+        direction: str=None):
+    """
+    Calculate and plot the granular temperature of a particle or all particles in a LIGGGHTS simulation.
+    """
+    if not os.path.isdir(dump_dir):
+        raise FileNotFoundError(f"Dump directory {dump_dir} does not exist")
+    
+    dump_files = [f for f in os.listdir(dump_dir) if f.endswith('.liggghts_run')]
+    if not dump_files:
+        raise FileNotFoundError(f"No LIGGGHTS dump files found in {dump_dir}")
+    
+    # sort in order of time
+    sort_key = lambda f: int(re.search(r'\d+', f).group(0))
+    dump_files.sort(key=sort_key)
+
+    # extract timesteps from filenames
+    times = np.array(
+        [float(sort_key(f)) for f in dump_files]
+        )
+    # normalise times to start from 0
+    times -= times[0]
+    # convert to seconds
+    times *= timestep
+
+    # get column names from the first dump file
+    with open(os.path.join(dump_dir, dump_files[0]), 'r') as f:
+        col_names = f.read().split('\n')[8]
+        col_names = col_names.split()[2:]
+
+    if time_rng:
+        if not (isinstance(time_rng, tuple) and len(time_rng)==2):
+            raise ValueError(
+                "`time_rng` must be tuple with a start and end time"
+                "Leave as None for all times"
+            )
+        # slice within time range
+        start_t, stop_t = time_rng
+        start_idx = np.searchsorted(times, start_t, side='left')
+        stop_idx = np.searchsorted(times, stop_t, side='right')
+
+        dump_files = dump_files[start_idx: stop_idx+1]
+        times = times[start_idx: stop_idx+1]
+
+
+    df_store = []
+    for i, file in enumerate(dump_files):
+        t_current = times[i]
+        print(t_current)
+        dump_df = _liggghtsdump2df(
+            os.path.join(dump_dir, file),
+            col_names=col_names
+        )
+
+        dump_df['time'] = t_current
+        dump_df.set_index(['time', 'id'], inplace=True)
+        df_store.append(dump_df)
+    
+    msd_df = pd.concat(df_store, axis=0).sort_index()
+
+    dz = msd_df.groupby('id')['z'].diff() ** 2
+    msd_by_particle = dz.groupby(level='id').sum()
+
+    if dump:
+        ids = msd_by_particle.index.to_numpy()
+        msd_vals = msd_by_particle.to_numpy()
+
+        msd_2d = np.vstack((ids, msd_vals))
+        np.save(os.path.join('pyoutputs', "msd.npy"), msd_2d)
+    if plot:
+        fig = plt.figure(figsize=(10, 10))
+        hist, bins = np.histogram(
+            msd_by_particle.values, bins=25, density=True)
+        freq = hist / hist.sum()
+        width = np.diff(bins)
+
+        plt.bar(
+            bins[1:], freq, width=width, align='edge', ec='k',
+        )
+        fig.tight_layout()
+        plt.xlabel("Mean Squared Displacement (m$^2$)")
+        plt.ylabel("Frequency")
+
+        plt.savefig(
+            os.path.join('pyoutputs', 'msd_histogram.png'),
+            bbox_inches='tight'
+        )
+
+
+    return msd_by_particle
+
+
 
 
 if __name__ == "__main__":
@@ -782,3 +892,4 @@ if __name__ == "__main__":
                                      png_name="pressure_time_plot_z",
                                      use_slices=True
                                      )
+    
