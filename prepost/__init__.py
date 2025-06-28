@@ -3,6 +3,7 @@
 # File   : __init__.py
 # Author : Abhirup Roy <axr154@bham.ac.uk>
 
-from .plotting          import FlBedPlot, liggghts2vtk
+from .plotting          import FlBedPlot
 from .model_analysis    import ModelAnalysis
 from .jinja2cfdem       import LIGGGHTSTemplatePopulator
+from .xtra_utils        import liggghts2vtk, msq_displ

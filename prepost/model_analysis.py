@@ -5,7 +5,7 @@
 Calculates bond number for the simulation data using different models
 """
 
-from .plotting import ProbeAnalysis
+from .plotting import FlBedPlot
 import pandas as pd
 import numpy as np
 
@@ -18,7 +18,7 @@ __email__ = "axr154@bham.ac.uk"
 __status__ = "Development"
 
 
-class ModelAnalysis(ProbeAnalysis):
+class ModelAnalysis(FlBedPlot):
     def __init__(self, **kwargs):
         """
         Initialise object to calculate the bond number using different models
