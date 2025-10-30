@@ -20,13 +20,9 @@ __status__ = "Development"
 
 
 class LIGGGHTSTemplatePopulator:
-
     def __init__(
-            self,
-            write_dir: str,
-            template_dir: str,
-            auto_cg: bool,
-            **kwargs: float):
+        self, write_dir: str, template_dir: str, auto_cg: bool, **kwargs: float
+    ):
         """
         Constructor for the LIGGGHTSTemplatePopulator class.
 
@@ -62,14 +58,14 @@ class LIGGGHTSTemplatePopulator:
         self.template_dir = template_dir
         # Check if the template directory exists
         if not os.path.isdir(template_dir):
-            raise ValueError('Template directory does not exist.')
+            raise ValueError("Template directory does not exist.")
 
         # Note default values are for from preliminary work on Eskal150
         # simulations
-        self.R = kwargs.get('radius', 0.000183)
-        self.density = kwargs.get('density', 1109)
-        self.bed_mass = kwargs.get('bed_mass', 0.0849)
-        self.contact_dumpstep = kwargs.get('contact_dumpstep', 2645)
+        self.R = kwargs.get("radius", 0.000183)
+        self.density = kwargs.get("density", 1109)
+        self.bed_mass = kwargs.get("bed_mass", 0.0849)
+        self.contact_dumpstep = kwargs.get("contact_dumpstep", 2645)
 
         # Default time steps
         self.timestep_init: float = 1e-6
@@ -77,22 +73,20 @@ class LIGGGHTSTemplatePopulator:
         self.n_settle_steps: int = 10000
 
         if auto_cg:
-            if 'cg_factor' not in kwargs:
+            if "cg_factor" not in kwargs:
                 raise ValueError(
-                    'cg_factor must be provided for coarse-grained simulations. Otherwise cg must be set to False or coarsegrain factors yourself.')
+                    "cg_factor must be provided for coarse-grained simulations. Otherwise cg must be set to False or coarsegrain factors yourself."
+                )
             else:
-                cg_factor = kwargs.get('cg_factor')
+                cg_factor = kwargs.get("cg_factor", 1)
             # Apply the coarse-graining factor [Model B from Che et al. (2023)]
-            R *= cg_factor
-            density *= 1 / cg_factor
-            bed_mass *= cg_factor**3
+            self.R *= cg_factor
+            self.density *= 1 / cg_factor
+            self.bed_mass *= cg_factor**3
 
     def _dump_params(
-            self,
-            params: dict | list,
-            target_dir: str,
-            save_as: str,
-            filename: str):
+        self, params: dict | list, target_dir: str, save_as: str, filename: str
+    ):
         """
         Helper function to dump template parameters to a JSON file.
 
@@ -110,13 +104,17 @@ class LIGGGHTSTemplatePopulator:
           ValueError: If the target directory does not exist or if the save_as format is invalid
         """
         if not os.path.isdir(target_dir):
-            raise ValueError(
-                f'Dump target directory {target_dir} does not exist.')
-        if save_as == 'txt':
-            np.savetxt(f'{target_dir}/{filename}.txt', params)
+            raise ValueError(f"Dump target directory {target_dir} does not exist.")
+        if save_as == "txt":
+            if isinstance(params, dict):
+                # Convert dict to array of strings for np.savetxt
+                text_data = [f"{key}={value}" for key, value in params.items()]
+                np.savetxt(f"{target_dir}/{filename}.txt", text_data, fmt='%s')
+            else:
+                np.savetxt(f"{target_dir}/{filename}.txt", params, fmt='%s')
 
-        elif save_as == 'json':
-            with open(f'{target_dir}/{filename}.json', 'w') as f:
+        elif save_as == "json":
+            with open(f"{target_dir}/{filename}.json", "w") as f:
                 json.dump(params, f)
         else:
             raise ValueError('Invalid file format. Must be "txt" or "json".')
@@ -134,16 +132,15 @@ class LIGGGHTSTemplatePopulator:
         Raises:
           ValueError: If the kind is not one of "init", "run" or "all"
         """
-        if kind == 'init':
+        if kind == "init":
             self.timestep_init = timestep
-        elif kind == 'run':
+        elif kind == "run":
             self.timestep_run = timestep
-        elif kind == 'all':
+        elif kind == "all":
             self.timestep_init = timestep
             self.timestep_run = timestep
         else:
-            raise ValueError(
-                'Invalid time step kind. Must be "init", "run" or "all".')
+            raise ValueError('Invalid time step kind. Must be "init", "run" or "all".')
 
     def set_init_time(self, time: int):
         """
@@ -157,11 +154,12 @@ class LIGGGHTSTemplatePopulator:
         self.n_settle_steps = int(time / self.timestep_init)
 
     def _compute_workofadhesion(
-            self,
-            surface_energy: float,
-            radius: float,
-            young_mod: float,
-            poisson_ratio: float) -> float:
+        self,
+        surface_energy: float,
+        radius: float,
+        young_mod: float,
+        poisson_ratio: float,
+    ) -> float:
         """
         Helper function to calculate the work of adhesion of a material using the JKR model (Thornton and Ning, 1998):
 
@@ -181,8 +179,7 @@ class LIGGGHTSTemplatePopulator:
         # Assuming monodisperse particles
         E_eq = 0.5 * young_mod / (1 - poisson_ratio**2)
         R_eq = radius / 2
-        workofadhesion = 7.09 * (surface_energy**5 *
-                                 R_eq**4 / E_eq**2)**(1 / 3)
+        workofadhesion = 7.09 * (surface_energy**5 * R_eq**4 / E_eq**2) ** (1 / 3)
         return workofadhesion
 
     def populate_sjkr_template(self, ced: int, dump_params: bool, **kwargs):
@@ -201,70 +198,86 @@ class LIGGGHTSTemplatePopulator:
         """
 
         jkr_jinja_env = jj.Environment(
-            loader=jj.FileSystemLoader(f'{self.template_dir}/sjkr'))
+            loader=jj.FileSystemLoader(f"{self.template_dir}/sjkr")
+        )
 
-        init_script_template = jkr_jinja_env.get_template('in.liggghts_init')
+        init_script_template = jkr_jinja_env.get_template("in.liggghts_init")
         init_script_contxt = {
-            'CED': ced,
-            'RADIUS': self.R,
-            'DENSITY': self.density,
-            'BED_MASS': self.bed_mass,
-            'TIMESTEP_INIT': self.timestep_init,
-            'SETTLETIME': self.n_settle_steps
+            "CED": ced,
+            "RADIUS": self.R,
+            "DENSITY": self.density,
+            "BED_MASS": self.bed_mass,
+            "TIMESTEP_INIT": self.timestep_init,
+            "SETTLETIME": self.n_settle_steps,
         }
         init_script_rendered = init_script_template.render(init_script_contxt)
 
-        run_script_template = jkr_jinja_env.get_template('in.liggghts_run')
+        run_script_template = jkr_jinja_env.get_template("in.liggghts_run")
         run_script_contxt = {
-            'CED': ced,
-            'DUMPSTEP_CONTACT': self.contact_dumpstep,
-            'TIMESTEP_RUN': self.timestep_run
+            "CED": ced,
+            "DUMPSTEP_CONTACT": self.contact_dumpstep,
+            "TIMESTEP_RUN": self.timestep_run,
         }
         run_script_rendered = run_script_template.render(run_script_contxt)
 
-        with open(f'{self.write_dir}/in.liggghts_init', 'w') as f:
+        with open(f"{self.write_dir}/in.liggghts_init", "w") as f:
             f.write(init_script_rendered)
-        with open(f'{self.write_dir}/in.liggghts_run', 'w') as f:
+        with open(f"{self.write_dir}/in.liggghts_run", "w") as f:
             f.write(run_script_rendered)
 
         if dump_params:
-            dump_filename: str = kwargs.get('dump_filename', 'params')
-            dump_filetype: str = kwargs.get('dump_filetype', 'json')
-            if dump_filetype == 'txt':
+            dump_filename: str = str(kwargs.get("dump_filename", "params"))
+            dump_filetype_raw = kwargs.get("dump_filetype", "json")
+            # Ensure dump_filetype is a valid string
+            if not isinstance(dump_filetype_raw, str) or dump_filetype_raw not in [
+                "txt",
+                "json",
+            ]:
+                dump_filetype = "json"  # fallback to default
+            else:
+                dump_filetype = dump_filetype_raw
+
+            if dump_filetype == "txt":
                 params = [
-                    f'radius={self.R}',
-                    f'ced={ced}',
-                    f'density={self.density}',
-                    f'bed_mass={self.bed_mass}',
-                    f'timestep={self.timestep_run}'
-                    f'model=sJKR'
+                    f"radius={self.R}",
+                    f"ced={ced}",
+                    f"density={self.density}",
+                    f"bed_mass={self.bed_mass}",
+                    f"timestep={self.timestep_run}model=sJKR",
                 ]
-                with open(f'{self.write_dir}/{dump_filename}.txt', 'w') as f:
+                with open(f"{self.write_dir}/{dump_filename}.txt", "w") as f:
                     f.writelines(params)
-            elif dump_filetype == 'json':
+                self._dump_params(
+                    params=params,
+                    target_dir="pyoutputs",
+                    save_as=dump_filetype,
+                    filename=dump_filename,
+                )
+            elif dump_filetype == "json":
                 params = {
                     "radius": self.R,
                     "ced": ced,
                     "density": self.density,
                     "bed_mass": self.bed_mass,
                     "timestep": self.timestep_run,
-                    "model": "sJKR"
+                    "model": "sJKR",
                 }
-
-            self._dump_params(
-                params=params,
-                target_dir='pyoutputs',
-                save_as=dump_filetype,
-                filename=dump_filename)
+                self._dump_params(
+                    params=params,
+                    target_dir="pyoutputs",
+                    save_as=dump_filetype,
+                    filename=dump_filename,
+                )
 
     def populate_jkr_template(
-            self,
-            autocomp_workofadhesion: bool,
-            dump_params: bool,
-            young_mod: float,
-            poisson_ratio: float,
-            contact_dumpstep: int,
-            **kwargs: float):
+        self,
+        autocomp_workofadhesion: bool,
+        dump_params: bool,
+        young_mod: float,
+        poisson_ratio: float,
+        contact_dumpstep: int,
+        **kwargs: float,
+    ):
         """
         Populate the template for the SJKR model:
         Args:
@@ -283,66 +296,81 @@ class LIGGGHTSTemplatePopulator:
         """
 
         sjkr_jinja_env = jj.Environment(
-            loader=jj.FileSystemLoader(f'{self.template_dir}/jkr'))
+            loader=jj.FileSystemLoader(f"{self.template_dir}/jkr")
+        )
 
         if autocomp_workofadhesion:
-            if 'surface_energy' not in kwargs:
+            if "surface_energy" not in kwargs:
                 raise ValueError(
-                    'surface_energy must be provided for automatic work of adhesion calculation.')
+                    "surface_energy must be provided for automatic work of adhesion calculation."
+                )
             else:
                 workofadhesion = self._compute_workofadhesion(
-                    surface_energy=kwargs.get('surface_energy'),
+                    surface_energy=kwargs.get("surface_energy", 55e-6),
                     radius=self.R,
                     young_mod=young_mod,
-                    poisson_ratio=poisson_ratio
+                    poisson_ratio=poisson_ratio,
                 )
         else:
-            workofadhesion = kwargs.get('workofadhesion', 0.116)
+            workofadhesion = kwargs.get("workofadhesion", 0.116)
 
-        init_script_template = sjkr_jinja_env.get_template('in.liggghts_init')
+        init_script_template = sjkr_jinja_env.get_template("in.liggghts_init")
         init_script_contxt = {
-            'RADIUS': self.R,
-            'YOUNG_MOD': young_mod,
-            'POISSON_RATIO': poisson_ratio,
-            'WORKOFADHESION': workofadhesion,
-            'DENSITY': self.density,
-            'BED_MASS': self.bed_mass,
-            'SETTLETIME': self.n_settle_steps,
-            'TIMESTEP_INIT': self.timestep_init
+            "RADIUS": self.R,
+            "YOUNG_MOD": young_mod,
+            "POISSON_RATIO": poisson_ratio,
+            "WORKOFADHESION": workofadhesion,
+            "DENSITY": self.density,
+            "BED_MASS": self.bed_mass,
+            "SETTLETIME": self.n_settle_steps,
+            "TIMESTEP_INIT": self.timestep_init,
         }
         init_script_rendered = init_script_template.render(init_script_contxt)
 
-        run_script_template = sjkr_jinja_env.get_template('in.liggghts_run')
+        run_script_template = sjkr_jinja_env.get_template("in.liggghts_run")
         run_script_contxt = {
-            'DUMPSTEP_CONTACT': contact_dumpstep,
-            'WORKOFADHESION': workofadhesion,
-            'YOUNG_MOD': young_mod,
-            'POISSON_RATIO': poisson_ratio,
-            'TIMESTEP_RUN': self.timestep_run
+            "DUMPSTEP_CONTACT": contact_dumpstep,
+            "WORKOFADHESION": workofadhesion,
+            "YOUNG_MOD": young_mod,
+            "POISSON_RATIO": poisson_ratio,
+            "TIMESTEP_RUN": self.timestep_run,
         }
         run_script_rendered = run_script_template.render(run_script_contxt)
 
-        with open(f'{self.write_dir}/in.liggghts_init', 'w') as f:
+        with open(f"{self.write_dir}/in.liggghts_init", "w") as f:
             f.write(init_script_rendered)
-        with open(f'{self.write_dir}/in.liggghts_run', 'w') as f:
+        with open(f"{self.write_dir}/in.liggghts_run", "w") as f:
             f.write(run_script_rendered)
         if dump_params:
-            dump_filename: str = kwargs.get('dump_filename', 'params')
-            dump_filetype: str = kwargs.get('dump_filetype', 'json')
-            if dump_filetype == 'txt':
+            dump_filename = str(kwargs.get("dump_filename", "params"))
+            dump_filetype_raw = kwargs.get("dump_filetype", "json")
+            # Ensure dump_filetype is a valid string
+            if not isinstance(dump_filetype_raw, str) or dump_filetype_raw not in [
+                "txt",
+                "json",
+            ]:
+                dump_filetype = "json"  # fallback to default
+            else:
+                dump_filetype = dump_filetype_raw
+            if dump_filetype == "txt":
                 params = [
-                    f'radius={self.R}',
-                    f'young_mod={young_mod}',
-                    f'poisson_ratio={poisson_ratio}',
-                    f'workofadhesion={workofadhesion}',
-                    f'density={self.density}',
-                    f'bed_mass={self.bed_mass}',
-                    f'timestep={self.timestep_run}'
-                    f'model=JKR'
+                    f"radius={self.R}",
+                    f"young_mod={young_mod}",
+                    f"poisson_ratio={poisson_ratio}",
+                    f"workofadhesion={workofadhesion}",
+                    f"density={self.density}",
+                    f"bed_mass={self.bed_mass}",
+                    f"timestep={self.timestep_run}model=JKR",
                 ]
-                with open(f'{self.write_dir}/{dump_filename}.txt', 'w') as f:
+                with open(f"{self.write_dir}/{dump_filename}.txt", "w") as f:
                     f.writelines(params)
-            elif dump_filetype == 'json':
+                self._dump_params(
+                    params=params,
+                    target_dir="pyoutputs",
+                    save_as=dump_filetype,
+                    filename=dump_filename,
+                )
+            elif dump_filetype == "json":
                 params = {
                     "radius": self.R,
                     "young_mod": young_mod,
@@ -351,25 +379,25 @@ class LIGGGHTSTemplatePopulator:
                     "density": self.density,
                     "bed_mass": self.bed_mass,
                     "timestep": self.timestep_run,
-                    "model": "JKR"
+                    "model": "JKR",
                 }
+                self._dump_params(
+                    params=params,
+                    target_dir="pyoutputs",
+                    save_as=dump_filetype,
+                    filename=dump_filename,
+                )
 
-            self._dump_params(
-                params=params,
-                target_dir='pyoutputs',
-                save_as=dump_filetype,
-                filename=dump_filename)
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     ltp = LIGGGHTSTemplatePopulator(
-        write_dir='DEM',
-        template_dir='templates',
+        write_dir="DEM",
+        template_dir="templates",
         auto_cg=False,
         radius=0.000183,
         density=1109,
         bed_mass=0.0849,
-        contact_dumpstep=2645
+        contact_dumpstep=2645,
     )
 
     # ltp.populate_jkr_template(autocomp_workofadhesion = True, surface_energy = 0.057, young_mod = 5.4e6, poisson_ratio = 0.25, contact_dumpstep = 2645, dump_params = True)

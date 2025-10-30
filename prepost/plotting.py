@@ -6,15 +6,13 @@ Plotting utils for CFDEM fluidised bed simulations.
 """
 
 import os
-import re
-
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
 import pandas as pd
 import pyvista as pv
-from pyevtk.hl import pointsToVTK
 from warnings import warn
+from typing import Optional
 
 __author__ = "Abhirup Roy"
 __credits__ = ["Abhirup Roy"]
@@ -25,15 +23,15 @@ __email__ = "axr154@bham.ac.uk"
 __status__ = "Development"
 
 
-class FlBedPlot():
-
+class FlBedPlot:
     def __init__(
-            self,
-            pressure_path: str,
-            nprobes: int,
-            velcfg_path: str,
-            dump2csv: bool = True,
-            plots_dir: str = 'plots/'):
+        self,
+        pressure_path: str,
+        nprobes: int,
+        velcfg_path: str,
+        dump2csv: bool = True,
+        plots_dir: str = "plots/",
+    ):
         """
         Initialise the FlBedPlot class for plotting pressure and void fraction data from fluidised bed simulations
 
@@ -54,15 +52,12 @@ class FlBedPlot():
         """
         # Check if the paths exist
         if not os.path.exists(pressure_path):
-            raise FileNotFoundError(
-                f"Pressure data at {pressure_path} does not exist")
+            raise FileNotFoundError(f"Pressure data at {pressure_path} does not exist")
 
         if not os.path.exists(velcfg_path):
-            raise FileNotFoundError(
-                f"Velocity config at {velcfg_path} does not exist")
+            raise FileNotFoundError(f"Velocity config at {velcfg_path} does not exist")
         if not os.path.isdir(plots_dir):
-            raise FileNotFoundError(
-                f" Plots directory at {plots_dir} does not exist")
+            raise FileNotFoundError(f" Plots directory at {plots_dir} does not exist")
 
         self.pressure_path = pressure_path
         self.nprobes = nprobes
@@ -70,13 +65,11 @@ class FlBedPlot():
         self.velcfg_path = velcfg_path
         self.plots_dir = plots_dir
 
-        rcParams.update({'font.size': 20})
+        rcParams.update({"font.size": 20})
 
     def _probe2df(
-            self,
-            use_slices: bool,
-            slice_dirn: str,
-            y_agg: str) -> pd.DataFrame:
+        self, use_slices: bool | None, slice_dirn: str | None, y_agg: str | None
+    ) -> pd.DataFrame:
         """
         Helper function to map the probe data to a pandas dataframe, with data indexed by time.
         Dumps the data to a csv file if dump2csv attribute of class is True.
@@ -96,6 +89,8 @@ class FlBedPlot():
             ValueError: If use_slices is True and slice_dirn is not "z" or "y".
             ValueError: If y_agg is not "cdf_median", "mean" or "median".
         """
+        pressure_df = pd.DataFrame()
+
         if use_slices:
             times = os.listdir(self.pressure_path)
             pressure_dict = dict()
@@ -103,62 +98,55 @@ class FlBedPlot():
             for dir in times:
                 if slice_dirn == "z":
                     p_lst = []
-                    pdata = pv.read(
-                        self.pressure_path + '/' + dir + '/p_zNormal0.vtk')
-                    p_arr = pdata.get_array('p')
+                    pdata = pv.read(self.pressure_path + "/" + dir + "/p_zNormal0.vtk")
+                    p_arr = pdata.get_array("p")
                     p_lst.append(p_arr.mean().item())
 
-                    pdata = pv.read(
-                        self.pressure_path + '/' + dir + '/p_zNormal1.vtk')
-                    p_arr = pdata.get_array('p')
+                    pdata = pv.read(self.pressure_path + "/" + dir + "/p_zNormal1.vtk")
+                    p_arr = pdata.get_array("p")
                     p_lst.append(p_arr.mean().item())
 
-                    pdata = pv.read(
-                        self.pressure_path + '/' + dir + '/p_zNormal2.vtk')
-                    p_arr = pdata.get_array('p')
+                    pdata = pv.read(self.pressure_path + "/" + dir + "/p_zNormal2.vtk")
+                    p_arr = pdata.get_array("p")
                     p_lst.append(p_arr.mean().item())
 
-                    pdata = pv.read(
-                        self.pressure_path + '/' + dir + '/p_zNormal3.vtk')
-                    p_arr = pdata.get_array('p')
+                    pdata = pv.read(self.pressure_path + "/" + dir + "/p_zNormal3.vtk")
+                    p_arr = pdata.get_array("p")
                     p_lst.append(p_arr.mean().item())
 
-                    pdata = pv.read(
-                        self.pressure_path + '/' + dir + '/p_zNormal4.vtk')
-                    p_arr = pdata.get_array('p')
+                    pdata = pv.read(self.pressure_path + "/" + dir + "/p_zNormal4.vtk")
+                    p_arr = pdata.get_array("p")
                     p_lst.append(p_arr.mean().item())
 
                     pressure_dict[float(dir)] = p_lst
 
                     pressure_df = pd.DataFrame.from_dict(
-                        pressure_dict, orient='index', columns=[
-                            f"Probe {i}" for i in range(
-                                self.nprobes)]).sort_index()
+                        pressure_dict,
+                        orient="index",
+                        columns=[f"Probe {i}" for i in range(self.nprobes)],
+                    ).sort_index()
 
                 elif slice_dirn == "y":
-                    pdata = pv.read(
-                        self.pressure_path + '/' + dir + '/p_yNormal.vtk')
-                    p_arr = pdata.get_array('p')
+                    pdata = pv.read(self.pressure_path + "/" + dir + "/p_yNormal.vtk")
+                    p_arr = pdata.get_array("p")
 
-                    if y_agg == 'cdf_median':
-                        pressure_dict[float(dir)] = p_arr
-                        pressure_dict = {
-                            k: self.find_cdfmedian(v) for k,
-                            v in pressure_dict.items()}
-                    elif y_agg == 'mean':
+                    if y_agg == "cdf_median":
+                        pressure_dict[float(dir)] = self.find_cdfmedian(p_arr)
+                    elif y_agg == "mean":
                         pressure_dict[float(dir)] = p_arr.mean().item()
                     elif y_agg == "median":
                         pressure_dict[float(dir)] = np.median(p_arr)
                     else:
                         raise ValueError(
-                            "Invalid aggregation method. Choose 'cdf_median' or 'mean'")
+                            "Invalid aggregation method. Choose 'cdf_median' or 'mean'"
+                        )
                     pressure_df = pd.DataFrame.from_dict(
-                        pressure_dict, orient='index', columns=['pressure']).sort_index()
+                        pressure_dict, orient="index", columns=["pressure"]
+                    ).sort_index()
                     pressure_df.to_csv("probe_pressure.csv")
 
                 else:
-                    raise ValueError(
-                        "Invalid slice direction. Choose 'z' or 'y'")
+                    raise ValueError("Invalid slice direction. Choose 'z' or 'y'")
 
         else:
             # Make df from the probe data
@@ -169,7 +157,7 @@ class FlBedPlot():
             pressure_df = pd.read_csv(
                 self.pressure_path,
                 delim_whitespace=True,
-                comment='#',
+                comment="#",
                 names=headers,
                 header=None,
             ).set_index("Probe Time")
@@ -229,23 +217,22 @@ class FlBedPlot():
         lb = [b[0] for b in bounds]
         ub = [b[1] for b in bounds]
         vz_arr = np.zeros_like(
-            df.index.to_numpy(),
-            dtype=float)  # Initialize as float array
+            df.index.to_numpy(), dtype=float
+        )  # Initialize as float array
 
         # Map the velocity to the pressure data
         for i in range(len(bounds)):
-            mask = (
-                df.index.to_numpy() > lb[i]) & (
-                df.index.to_numpy() < ub[i])
+            mask = (df.index.to_numpy() > lb[i]) & (df.index.to_numpy() < ub[i])
             vz_arr[mask] = vel[i]
 
             if i < len(bounds) - 1:
                 gap_mask = (df.index.to_numpy() >= ub[i]) & (
-                    df.index.to_numpy() <= lb[i + 1])
+                    df.index.to_numpy() <= lb[i + 1]
+                )
                 vz_arr[gap_mask] = np.nan
         df["V_z"] = vz_arr
 
-        def _map_direction(x) -> None:
+        def _map_direction(x) -> str:
             """
             Simple helper function to map the direction of the velocity. i.e whether it is increasing, decreasing or at max
             """
@@ -255,10 +242,11 @@ class FlBedPlot():
                 return "max"
             else:
                 return "down"
+
         # Add direction to the dataframe
         df["direction"] = df.index.to_series().apply(_map_direction)
 
-    def find_cdfmedian(self, arr: np.array) -> float:
+    def find_cdfmedian(self, arr: np.ndarray) -> float:
         """
         Finds the median of the CDF of the given array.
 
@@ -274,17 +262,18 @@ class FlBedPlot():
         cusum = np.cumsum(counts)
         cdf = cusum / cusum[-1]
 
-        median_idx = cdf.tolist().index(np.percentile(cdf, 50, method='nearest'))
+        median_idx = cdf.tolist().index(np.percentile(cdf, 50, method="nearest"))
         return x[median_idx].item()
 
     def plot_pressure(
-            self,
-            x_var: str,
-            png_name: str = None,
-            use_slices: bool = True,
-            slice_dirn: str = None,
-            y_agg=None,
-            dump_probe0: bool = True):
+        self,
+        x_var: str,
+        png_name: Optional[str] = None,
+        use_slices: Optional[bool] = True,
+        slice_dirn: Optional[str] = None,
+        y_agg: Optional[str] = None,
+        dump_probe0: Optional[bool] = True,
+    ):
         """
         Plot the pressure data from simulation
 
@@ -309,29 +298,26 @@ class FlBedPlot():
           ValueError: If y_agg is not "cdf_median", "mean" or "median".
         """
         if slice_dirn == "y":
-            warn("Aggregating pressure data using y-slices can yield inaccurate results. Use with caution")
+            warn(
+                "Aggregating pressure data using y-slices can yield inaccurate results. Use with caution"
+            )
 
         plot_suffix = "slices" if use_slices else "probes"
         pressure_df = self._probe2df(
-            use_slices=use_slices,
-            slice_dirn=slice_dirn,
-            y_agg=y_agg)
+            use_slices=use_slices, slice_dirn=slice_dirn, y_agg=y_agg
+        )
 
         if x_var == "time":
             pressure_df.plot(
                 xlabel="Time (s)",
-                figsize=(
-                    20,
-                    10),
+                figsize=(20, 10),
                 fontsize=20,
                 ylabel="Pressure (Pa)",
-                title=f"Pressure at {plot_suffix}")
+                title=f"Pressure at {plot_suffix}",
+            )
             plt.savefig(
-                self.plots_dir +
-                png_name +
-                ".png") if png_name else plt.savefig(
-                self.plots_dir +
-                "probe_pressure.png")
+                self.plots_dir + png_name + ".png"
+            ) if png_name else plt.savefig(self.plots_dir + "probe_pressure.png")
 
         elif x_var == "velocity":
             plt.figure(figsize=[20, 10])
@@ -340,66 +326,81 @@ class FlBedPlot():
             vel_plot_df = pressure_df.groupby(["direction", "V_z"]).mean()
 
             # Sort the data for plotting
-            vel_up = vel_plot_df[
-                vel_plot_df.index.get_level_values(level='direction').isin(["up", "max"])
-            ].reset_index('direction', drop=True).sort_index()
+            vel_up = (
+                vel_plot_df[
+                    vel_plot_df.index.get_level_values(level="direction").isin(
+                        ["up", "max"]
+                    )
+                ]
+                .reset_index("direction", drop=True)
+                .sort_index()
+            )
 
-            vel_down = vel_plot_df[
-                vel_plot_df.index.get_level_values(level='direction').isin(["down", "max"])
-            ].reset_index('direction', drop=True).sort_index()
+            vel_down = (
+                vel_plot_df[
+                    vel_plot_df.index.get_level_values(level="direction").isin(
+                        ["down", "max"]
+                    )
+                ]
+                .reset_index("direction", drop=True)
+                .sort_index()
+            )
 
             if slice_dirn == "z":
                 for i in range(self.nprobes):
-                    plt.plot(vel_up.index,
-                             vel_up[pressure_df.columns[i]],
-                             label=f"Probe {i} (Up)",
-                             color=f'C{i}',
-                             marker='o')
-                    plt.plot(vel_down.index,
-                             vel_down[pressure_df.columns[i]],
-                             label=f"Probe {i} (Down)",
-                             color=f'C{i}',
-                             marker='o',
-                             linestyle='dashed')
+                    plt.plot(
+                        vel_up.index,
+                        vel_up[pressure_df.columns[i]],
+                        label=f"Probe {i} (Up)",
+                        color=f"C{i}",
+                        marker="o",
+                    )
+                    plt.plot(
+                        vel_down.index,
+                        vel_down[pressure_df.columns[i]],
+                        label=f"Probe {i} (Down)",
+                        color=f"C{i}",
+                        marker="o",
+                        linestyle="dashed",
+                    )
                 if dump_probe0:
                     probe0_up_v = vel_up.index.to_numpy()
                     probe0_up_p = vel_up[pressure_df.columns[0]].to_numpy()
                     probe0_down_v = vel_down.index.to_numpy()
                     probe0_down_p = vel_down[pressure_df.columns[0]].to_numpy()
                     probe0_2d = np.vstack(
-                        (probe0_up_v, probe0_up_p, probe0_down_v, probe0_down_p)).T
+                        (probe0_up_v, probe0_up_p, probe0_down_v, probe0_down_p)
+                    ).T
                     np.save(
-                        os.path.join(
-                            self.plots_dir,
-                            "probe0_plot_voidfrac.npy"),
-                        probe0_2d)
+                        os.path.join(self.plots_dir, "probe0_plot_voidfrac.npy"),
+                        probe0_2d,
+                    )
 
             else:
-
                 plt.plot(
                     vel_up.index,
-                    vel_up['pressure'],
+                    vel_up["pressure"],
                     label=r"$V_z$ Increasing",
-                    color='C0',
-                    marker='o')
+                    color="C0",
+                    marker="o",
+                )
                 plt.plot(
                     vel_down.index,
-                    vel_down['pressure'],
+                    vel_down["pressure"],
                     label=r"$V_z$ Increasing",
-                    color='C0',
-                    marker='o',
-                    linestyle='dashed')
+                    color="C0",
+                    marker="o",
+                    linestyle="dashed",
+                )
             plt.xlabel("Velocity (m/s)")
             plt.ylabel("Pressure (Pa)")
 
         plt.legend()
         plt.title(f"Pressure vs Velocity for {plot_suffix}")
 
-        plt.savefig(
-            self.plots_dir +
-            f"{png_name}.png") if png_name else plt.savefig(
-            self.plots_dir +
-            f"pressure_vel_plot_{plot_suffix}.png")
+        plt.savefig(self.plots_dir + f"{png_name}.png") if png_name else plt.savefig(
+            self.plots_dir + f"pressure_vel_plot_{plot_suffix}.png"
+        )
 
     def _read_voidfrac(self, post_dir: str, slice_dirn: str) -> pd.DataFrame:
         """
@@ -420,62 +421,61 @@ class FlBedPlot():
         times = os.listdir(post_dir)
 
         voidfrac_dict = dict()
+        voidfrac_df = pd.DataFrame()
+
         for dir in times:
-            voidfrac_lst = []
-
-            if slice_dirn == 'z':
-                void_data = pv.read(
-                    post_dir + '/' + dir + '/voidfraction_zNormal0.vtk')
-                voidfrac_arr = void_data.get_array('voidfraction')
+            if slice_dirn == "z":
+                voidfrac_lst = []
+                void_data = pv.read(post_dir + "/" + dir + "/voidfraction_zNormal0.vtk")
+                voidfrac_arr = void_data.get_array("voidfraction")
                 voidfrac_lst.append(voidfrac_arr.mean().item())
 
-                void_data = pv.read(
-                    post_dir + '/' + dir + '/voidfraction_zNormal1.vtk')
-                voidfrac_arr = void_data.get_array('voidfraction')
+                void_data = pv.read(post_dir + "/" + dir + "/voidfraction_zNormal1.vtk")
+                voidfrac_arr = void_data.get_array("voidfraction")
                 voidfrac_lst.append(voidfrac_arr.mean().item())
 
-                void_data = pv.read(
-                    post_dir + '/' + dir + '/voidfraction_zNormal2.vtk')
-                voidfrac_arr = void_data.get_array('voidfraction')
+                void_data = pv.read(post_dir + "/" + dir + "/voidfraction_zNormal2.vtk")
+                voidfrac_arr = void_data.get_array("voidfraction")
                 voidfrac_lst.append(voidfrac_arr.mean().item())
 
-                void_data = pv.read(
-                    post_dir + '/' + dir + '/voidfraction_zNormal3.vtk')
-                voidfrac_arr = void_data.get_array('voidfraction')
+                void_data = pv.read(post_dir + "/" + dir + "/voidfraction_zNormal3.vtk")
+                voidfrac_arr = void_data.get_array("voidfraction")
                 voidfrac_lst.append(voidfrac_arr.mean().item())
 
-                void_data = pv.read(
-                    post_dir + '/' + dir + '/voidfraction_zNormal4.vtk')
-                voidfrac_arr = void_data.get_array('voidfraction')
+                void_data = pv.read(post_dir + "/" + dir + "/voidfraction_zNormal4.vtk")
+                voidfrac_arr = void_data.get_array("voidfraction")
                 voidfrac_lst.append(voidfrac_arr.mean().item())
+
                 voidfrac_dict[float(dir)] = voidfrac_lst
-                voidfrac_df = pd.DataFrame.from_dict(
-                    voidfrac_dict, orient='index', columns=[
-                        f"Probe {i}" for i in range(
-                            self.nprobes)]).sort_index()
 
-            elif slice_dirn == 'y':
-                void_data = pv.read(
-                    post_dir + '/' + dir + '/voidfraction_yNormal.vtk')
-                voidfrac_arr = void_data.get_array('voidfraction')
-                voidfrac_dict[float(dir)] = voidfrac_arr
-                voidfrac_dict = {
-                    k: self.find_cdfmedian(v) for k,
-                    v in voidfrac_dict.items()}
-                voidfrac_df = pd.DataFrame.from_dict(
-                    voidfrac_dict, orient='index', columns=['void_frac']).sort_index()
+            elif slice_dirn == "y":
+                void_data = pv.read(post_dir + "/" + dir + "/voidfraction_yNormal.vtk")
+                voidfrac_arr = void_data.get_array("voidfraction")
+                voidfrac_dict[float(dir)] = self.find_cdfmedian(voidfrac_arr)
             else:
                 raise ValueError("Invalid slice direction. Choose 'z' or 'y'")
+
+        if slice_dirn == "z":
+            voidfrac_df = pd.DataFrame.from_dict(
+                voidfrac_dict,
+                orient="index",
+                columns=[f"Probe {i}" for i in range(self.nprobes)],
+            ).sort_index()
+        elif slice_dirn == "y":
+            voidfrac_df = pd.DataFrame.from_dict(
+                voidfrac_dict, orient="index", columns=["void_frac"]
+            ).sort_index()
 
         return voidfrac_df
 
     def plot_voidfrac(
-            self,
-            slice_dirn: str,
-            x_var: str,
-            post_dir: str = "CFD/postProcessing/cuttingPlane/",
-            png_name: str = None,
-            dump_probe0: bool = True):
+        self,
+        slice_dirn: str,
+        x_var: str,
+        post_dir: str = "CFD/postProcessing/cuttingPlane/",
+        png_name: Optional[str] = None,
+        dump_probe0: bool = True,
+    ):
         """
         Plots the void fraction data against time or velocity, depending on the x_var argument.
         If x_var is "time", the plot will show void fraction vs time. If x_var is "velocity",
@@ -498,19 +498,19 @@ class FlBedPlot():
           ValueError: If x_var is not "time" or "velocity".
         """
         plt.figure(figsize=[20, 10])
-        voidfrac_df = self._read_voidfrac(
-            slice_dirn=slice_dirn, post_dir=post_dir)
+        voidfrac_df = self._read_voidfrac(slice_dirn=slice_dirn, post_dir=post_dir)
 
         if x_var == "time":
             voidfrac_df.plot(
                 xlabel="Time (s)",
                 ylabel="Void Fraction (-)",
-                title="Void Fraction vs Time")
+                title="Void Fraction vs Time",
+            )
             plt.savefig(
-                self.plots_dir +
-                f"{png_name}.png") if png_name else plt.savefig(
-                self.plots_dir +
-                f"voidfrac_time_plot_{slice_dirn}.png")
+                self.plots_dir + f"{png_name}.png"
+            ) if png_name else plt.savefig(
+                self.plots_dir + f"voidfrac_time_plot_{slice_dirn}.png"
+            )
             plt.xlabel("Velocity (m/s)")
 
         elif x_var == "velocity":
@@ -519,52 +519,70 @@ class FlBedPlot():
             vel_plot_df = voidfrac_df.groupby(["direction", "V_z"]).mean()
 
             # Sort the data for plotting
-            vel_up = vel_plot_df[
-                vel_plot_df.index.get_level_values(level='direction').isin(["up", "max"])
-            ].reset_index('direction', drop=True).sort_index()
+            vel_up = (
+                vel_plot_df[
+                    vel_plot_df.index.get_level_values(level="direction").isin(
+                        ["up", "max"]
+                    )
+                ]
+                .reset_index("direction", drop=True)
+                .sort_index()
+            )
             # print("Vel up", vel_up)
 
-            vel_down = vel_plot_df[
-                vel_plot_df.index.get_level_values(level='direction').isin(["down", "max"])
-            ].reset_index('direction', drop=True).sort_index()
+            vel_down = (
+                vel_plot_df[
+                    vel_plot_df.index.get_level_values(level="direction").isin(
+                        ["down", "max"]
+                    )
+                ]
+                .reset_index("direction", drop=True)
+                .sort_index()
+            )
 
             if slice_dirn == "z":
                 for i in range(self.nprobes):
-                    plt.plot(vel_up.index,
-                             vel_up[voidfrac_df.columns[i]],
-                             label=f"Probe {i} (Up)",
-                             color=f'C{i}',
-                             marker='o')
-                    plt.plot(vel_down.index,
-                             vel_down[voidfrac_df.columns[i]],
-                             label=f"Probe {i} (Down)",
-                             color=f'C{i}',
-                             marker='o',
-                             linestyle='dashed')
+                    plt.plot(
+                        vel_up.index,
+                        vel_up[voidfrac_df.columns[i]],
+                        label=f"Probe {i} (Up)",
+                        color=f"C{i}",
+                        marker="o",
+                    )
+                    plt.plot(
+                        vel_down.index,
+                        vel_down[voidfrac_df.columns[i]],
+                        label=f"Probe {i} (Down)",
+                        color=f"C{i}",
+                        marker="o",
+                        linestyle="dashed",
+                    )
             else:
                 plt.plot(
                     vel_up.index,
-                    vel_up['void_frac'],
+                    vel_up["void_frac"],
                     label=r"$V_z$ Increasing",
-                    color='C0',
-                    marker='o')
+                    color="C0",
+                    marker="o",
+                )
                 plt.plot(
                     vel_down.index,
-                    vel_down['void_frac'],
+                    vel_down["void_frac"],
                     label=r"$V_z$ Increasing",
-                    color='C0',
-                    marker='o',
-                    linestyle='dashed')
+                    color="C0",
+                    marker="o",
+                    linestyle="dashed",
+                )
                 if dump_probe0:
                     probe0_up_v = vel_up.index.to_numpy()
-                    probe0_up_p = vel_up['void_frac'].to_numpy()
+                    probe0_up_p = vel_up["void_frac"].to_numpy()
                     probe0_down_v = vel_down.index.to_numpy()
-                    probe0_down_p = vel_down['void_frac'].to_numpy()
+                    probe0_down_p = vel_down["void_frac"].to_numpy()
                     probe0_2d = np.vstack(
-                        (probe0_up_v, probe0_up_p, probe0_down_v, probe0_down_p)).T
+                        (probe0_up_v, probe0_up_p, probe0_down_v, probe0_down_p)
+                    ).T
                     np.save(
-                        os.path.join(self.plots_dir, "probe0_plot_P.npy"),
-                        probe0_2d
+                        os.path.join(self.plots_dir, "probe0_plot_P.npy"), probe0_2d
                     )
 
             plt.xlabel("Velocity (m/s)")
@@ -573,11 +591,9 @@ class FlBedPlot():
         plt.legend()
         plt.title("Void Fraction vs Velocity")
 
-        plt.savefig(
-            self.plots_dir +
-            f"{png_name}.png") if png_name else plt.savefig(
-            self.plots_dir +
-            f"voidfrac_vel_plot_{slice_dirn}.png")
+        plt.savefig(self.plots_dir + f"{png_name}.png") if png_name else plt.savefig(
+            self.plots_dir + f"voidfrac_vel_plot_{slice_dirn}.png"
+        )
 
     def _read_collisions(self, csv_path: str, calltype: str) -> pd.DataFrame:
         """
@@ -593,19 +609,25 @@ class FlBedPlot():
           A pandas DataFrame with the collision data. If calltype is "contactarea", the DataFrame will contain a_contact_peratom column.
           If calltype is "contactn", the DataFrame will contain a contactn column.
         """
-        df = pd.read_csv(csv_path, sep='\\s+')
+        try:
+            df = pd.read_csv(csv_path, sep="\\s+")
+        except Exception as e:
+            raise Exception(f"Error reading collision data from {csv_path}: {e}")
 
         if calltype == "contactarea":
-            df['a_contact_peratom'] = df.a_contact / df.n_atoms
-            return df.drop(columns=['n_atoms'])
+            df["a_contact_peratom"] = df.a_contact / df.n_atoms
+            return df.drop(columns=["n_atoms"])
         elif calltype == "contactn":
-            df['contactn'] = df.n_contact / df.n_atoms
+            df["contactn"] = df.n_contact / df.n_atoms
             return df
+        else:
+            raise ValueError(
+                f"Invalid calltype '{calltype}'. Must be 'contactarea' or 'contactn'."
+            )
 
     def plot_contactarea(
-            self,
-            csv_path: str = 'DEM/post/collisions.csv',
-            png_name: str = None):
+        self, csv_path: str = "DEM/post/collisions.csv", png_name: Optional[str] = None
+    ) -> None:
         """
         Plot the contact area data from the DEM simulations
 
@@ -616,17 +638,18 @@ class FlBedPlot():
             (OPTIONAL) Name of the png file to save the plot. If not specified, the filename is selected automatically.
         """
         fig = plt.figure(figsize=[20, 10])
+        ax = fig.gca()
 
-        contact_df = self._read_collisions(
-            csv_path=csv_path, calltype="contactarea")
-        plt.plot(
+        contact_df = self._read_collisions(csv_path=csv_path, calltype="contactarea")
+        ax.plot(
             contact_df.time,
             contact_df.a_contact_peratom,
             label="Contact Area per Atom",
-            color='C0')
-        plt.xlabel("Time (s)")
-        plt.ylabel(r"Contact Area per Atom ($m^2$)")
-        plt.title("Contact Area vs Time")
+            color="C0",
+        )
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel(r"Contact Area per Particle ($m^2$)")
+        ax.set_title("Contact Area vs Time")
         if png_name:
             plt.savefig(self.plots_dir + f"{png_name}.png")
         else:
@@ -634,17 +657,13 @@ class FlBedPlot():
 
 
 if __name__ == "__main__":
-
     # Example usage - usable as a standalone script for default paths
 
-    pressure_path = 'CFD/postProcessing/cuttingPlane/'
-    velcfg_path = 'velcfg.txt'
+    pressure_path = "CFD/postProcessing/cuttingPlane/"
+    velcfg_path = "velcfg.txt"
 
     probe_cfdem_slices = FlBedPlot(
-        pressure_path=pressure_path,
-        nprobes=5,
-        velcfg_path=velcfg_path,
-        dump2csv=False
+        pressure_path=pressure_path, nprobes=5, velcfg_path=velcfg_path, dump2csv=False
     )
 
     """
@@ -671,21 +690,17 @@ if __name__ == "__main__":
     # probe_cfdem_slices.plot_pressure(slice_dirn="z", x_var="velocity", png_name="pressure_vel_plot_z", use_slices=True)
     # probe_cfdem_slices.plot_voidfrac(slice_dirn="z", x_var="velocity", png_name="voidfrac_vel_plot_z")
 
-    probe_cfdem_slices.plot_pressure(slice_dirn="z",
-                                     x_var="velocity",
-                                     png_name="pressure_vel_plot_z",
-                                     use_slices=True
-                                     )
-
-    probe_cfdem_slices.plot_voidfrac(
-        slice_dirn="y",
+    probe_cfdem_slices.plot_pressure(
+        slice_dirn="z",
         x_var="velocity",
-        png_name="voidfrac_time_plot_y"
+        png_name="pressure_vel_plot_z",
+        use_slices=True,
     )
 
-    probe_cfdem_slices.plot_pressure(slice_dirn="z",
-                                     x_var="time",
-                                     png_name="pressure_time_plot_z",
-                                     use_slices=True
-                                     )
-    
+    probe_cfdem_slices.plot_voidfrac(
+        slice_dirn="y", x_var="velocity", png_name="voidfrac_time_plot_y"
+    )
+
+    probe_cfdem_slices.plot_pressure(
+        slice_dirn="z", x_var="time", png_name="pressure_time_plot_z", use_slices=True
+    )
