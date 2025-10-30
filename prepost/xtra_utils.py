@@ -3,13 +3,14 @@
 
 import os
 import re
+from typing import Optional
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from pyevtk.hl import pointsToVTK
 
 
-def _liggghtsdump2df(dump_filepath: str, col_names: str) -> pd.DataFrame:
+def _liggghtsdump2df(dump_filepath: str, col_names: list[str]) -> pd.DataFrame:
     """
     Helper function to convert LIGGGHTS dump files to a pandas DataFrame.
     Args:
@@ -32,9 +33,9 @@ def _liggghtsdump2df(dump_filepath: str, col_names: str) -> pd.DataFrame:
 
 def liggghts2vtk(
     timestep: float = 5e-6,
-    vtk_dir: str = None,
-    dump_every: int = None,
-    liggghts_dump_dir: str = None,
+    vtk_dir: Optional[str] = None,
+    dump_every: Optional[int] = None,
+    liggghts_dump_dir: Optional[str] = None,
     file_suffix: str = ".liggghts_run",
 ):
     """
@@ -125,12 +126,12 @@ def liggghts2vtk(
 
 
 def msq_displ(
-    time_rng: tuple[float, float] = None,
+    time_rng: Optional[tuple[float, float]] = None,
     dump_dir: str = "DEM/post",
     dump: bool = True,
     plot: bool = True,
     timestep: float = 5e-6,
-    direction: str = None,
+    direction: Optional[str] = None,
 ):
     """
     Calculate and plot the mean squared displacement of a particle or all particles in a LIGGGHTS simulation.
@@ -152,7 +153,10 @@ def msq_displ(
         raise FileNotFoundError(f"No LIGGGHTS dump files found in {dump_dir}")
 
     # sort in order of time
-    sort_key = lambda f: int(re.search(r"\d+", f).group(0))
+    def sort_key(f):
+        match = re.search(r"\d+", f)
+        return int(match.group(0)) if match else 0
+
     dump_files.sort(key=sort_key)
 
     # extract timesteps from filenames
@@ -204,7 +208,7 @@ def msq_displ(
         np.save(os.path.join("pyoutputs", "msd.npy"), msd_2d)
     if plot:
         fig = plt.figure(figsize=(10, 10))
-        hist, bins = np.histogram(msd_by_particle.values, bins=25, density=True)
+        hist, bins = np.histogram(msd_by_particle.to_numpy(), bins=25, density=True)
         freq = hist / hist.sum()
         width = np.diff(bins)
 
