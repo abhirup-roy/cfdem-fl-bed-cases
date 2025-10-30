@@ -20,20 +20,18 @@ neigh_modify    delay 0
 
 # Material properties required for granular pair styles
 
-fix         m1 all property/global youngsModulus peratomtype 5400000.0
+fix         m1 all property/global youngsModulus peratomtype 5.4e6
 fix         m2 all property/global poissonsRatio peratomtype 0.25
-fix         m3 all property/global coefficientRestitution peratomtypepair 1 0.8
-fix         m4 all property/global coefficientFriction peratomtypepair 1 0.86
-fix		    m5 all property/global workOfAdhesion peratomtypepair 1 1.3406313299094756e-14
-fix     	m6 all property/global resolutionJKR scalar 1e-4
+fix         m3 all property/global coefficientRestitution peratomtypepair 1 0.4
+fix         m4 all property/global coefficientFriction peratomtypepair 1 0.46
+fix	    m5 all property/global cohesionEnergyDensity peratomtypepair 1 100.0
 
 # pair style
-# pair_style  gran model hertz tangential history cohesion sjkr   # Hertzian with cohesion
-pair_style gran model jkr tangential jkr_tan
+pair_style  gran model hertz tangential history cohesion sjkr   # Hertzian with cohesion
 pair_coeff  * *
 
 # timestep, gravity
-timestep    5e-6
+timestep    5e-06
 fix         gravi all gravity 9.81 vector 0.0 0.0 -1.0
 
 # walls
@@ -79,7 +77,6 @@ thermo          10
 thermo_modify   lost ignore norm no
 compute_modify  thermo_temp dynamic yes
 
-
 # calculate number of contacts
 compute ppc all contact/atom
 compute sumcontact all reduce sum c_ppc
@@ -88,7 +85,10 @@ variable n_contact equal c_sumcontact/2
 variable n_atoms equal atoms
 variable t_sim equal step*dt
 
-# compute fc all pair/gran/local contactArea        # UNCOMMENT THIS LINE TO GET CONTACT AREA
+# compute contact area
+compute ca all pair/gran/local contactArea
+compute sumca all reduce sum c_ca[1]
+variable a_contact equal c_sumca/2
 
 
 #restart 100000  ../DEM/post/restart/restart.*.DEM
@@ -96,9 +96,8 @@ variable t_sim equal step*dt
 dump            dmp all custom 20000 ../DEM/post/dump*.liggghts_run id type x y z vx vy vz fx fy fz f_dragforce[1] f_dragforce[2] f_dragforce[3] radius 
 dump            dmp2 tracer custom 1000 ../DEM/post/tracer/P2dump*.liggghts_run id type x y z vx vy vz fx fy fz f_dragforce[1] f_dragforce[2] f_dragforce[3] radius
 
-fix file all print 2645 "${t_sim} ${n_atoms} ${n_contact}" screen no file ../DEM/post/collisions.csv title "time,n_atoms,n_contact"
+fix file all print 2645 "${t_sim} ${n_atoms} ${n_contact} ${a_contact}" screen no file ../DEM/post/collisions.csv title "time n_atoms n_contact a_contact"
 
 run             0
 
-
-#restart 100000  ../DEM/post/restart/restart.*.DEM
+run             0
